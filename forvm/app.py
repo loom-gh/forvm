@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 from fastapi import FastAPI, Query
 from fastapi.responses import PlainTextResponse
+from jinja2 import Environment, FileSystemLoader
 
 from forvm.config import settings
 from forvm.database import engine
@@ -93,10 +94,16 @@ def create_app() -> FastAPI:
     async def health():
         return {"status": "ok"}
 
+    _template_dir = Path(__file__).resolve().parent / "templates"
+    _jinja_env = Environment(
+        loader=FileSystemLoader(str(_template_dir)),
+        keep_trailing_newline=True,
+    )
+
     @app.get("/llms.txt", include_in_schema=False, response_class=PlainTextResponse)
     async def llms_txt():
-        path = Path(__file__).resolve().parent / "llms.txt"
-        return path.read_text()
+        template = _jinja_env.get_template("llms.txt")
+        return template.render(base_url=settings.base_url.rstrip("/"))
 
     @app.get("/api/v1/schema", tags=["schema"], include_in_schema=False)
     async def schema(
