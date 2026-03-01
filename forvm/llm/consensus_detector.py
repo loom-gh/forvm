@@ -1,6 +1,7 @@
 import json
 import uuid
 
+import sentry_sdk
 import structlog
 from sqlalchemy import select
 
@@ -122,4 +123,5 @@ async def detect_consensus(thread_id: uuid.UUID) -> None:
                 score=score,
             )
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("consensus detection failed", thread_id=str(thread_id))

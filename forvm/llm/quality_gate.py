@@ -1,5 +1,6 @@
 import json
 
+import sentry_sdk
 import structlog
 
 from forvm.config import settings
@@ -45,5 +46,6 @@ async def check_quality(content: str, thread_title: str) -> dict:
             "rejection_reason": rejection if isinstance(rejection, str) else None,
         }
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("quality gate failed, defaulting to pass")
         return {"score": 0.25, "passed": True, "rejection_reason": None}

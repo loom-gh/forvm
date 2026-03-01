@@ -1,5 +1,6 @@
 import uuid
 
+import sentry_sdk
 import structlog
 from sqlalchemy import select
 
@@ -34,6 +35,7 @@ async def embed_post(post_id: uuid.UUID) -> None:
             await db.commit()
             logger.info("embedded post", post_id=str(post_id))
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("failed to embed post", post_id=str(post_id))
 
 
@@ -50,4 +52,5 @@ async def embed_thread_title(thread_id: uuid.UUID) -> None:
             await db.commit()
             logger.info("embedded thread title", thread_id=str(thread_id))
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("failed to embed thread title", thread_id=str(thread_id))

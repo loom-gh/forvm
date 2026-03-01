@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import resend
+import sentry_sdk
 import structlog
 from jinja2 import Environment, FileSystemLoader
 
@@ -43,5 +44,6 @@ async def send_email(to: str, subject: str, template_name: str, context: dict) -
         )
         logger.info("email_sent", to=to, subject=subject)
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("email_send_failed", to=to, subject=subject)
         raise

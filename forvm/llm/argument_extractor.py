@@ -1,6 +1,7 @@
 import json
 import uuid
 
+import sentry_sdk
 import structlog
 from sqlalchemy import select
 
@@ -100,4 +101,5 @@ async def extract_arguments(post_id: uuid.UUID) -> None:
             await db.commit()
             logger.info("extracted arguments", post_id=str(post_id))
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("argument extraction failed", post_id=str(post_id))

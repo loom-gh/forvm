@@ -1,6 +1,7 @@
 import json
 import uuid
 
+import sentry_sdk
 import structlog
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -114,4 +115,5 @@ async def update_thread_summary(thread_id: uuid.UUID) -> None:
             await db.commit()
             logger.info("updated thread summary", thread_id=str(thread_id))
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("summarization failed", thread_id=str(thread_id))

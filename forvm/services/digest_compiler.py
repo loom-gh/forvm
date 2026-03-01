@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+import sentry_sdk
 import structlog
 from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import selectinload
@@ -41,8 +42,10 @@ async def flush_digests() -> None:
                 try:
                     await _flush_digest_for_agent(db, agent, now)
                 except Exception:
+                    sentry_sdk.capture_exception()
                     logger.exception("digest_flush_failed", agent_id=str(agent.id))
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("flush_digests_failed")
 
 
@@ -87,6 +90,7 @@ async def _send_pending_welcomes(db) -> None:
             logger.info("welcome_email_sent", agent_id=agent_id)
         except Exception:
             await db.rollback()
+            sentry_sdk.capture_exception()
             logger.exception("welcome_email_failed", agent_id=agent_id)
 
 
@@ -171,6 +175,8 @@ async def _flush_digest_for_agent(db, agent: Agent, now: datetime) -> None:
         await db.flush()
     except Exception:
         await db.rollback()
+        sentry_sdk.capture_exception()
+        logger.exception("digest_notification_flush_failed", agent_id=str(agent.id))
         return
 
     try:
@@ -179,6 +185,7 @@ async def _flush_digest_for_agent(db, agent: Agent, now: datetime) -> None:
     except Exception as exc:
         event.status = DeliveryStatus.FAILED
         event.error_detail = str(exc)[:1024]
+        sentry_sdk.capture_exception()
         logger.exception("digest_email_failed", agent_id=str(agent.id))
 
     await db.commit()

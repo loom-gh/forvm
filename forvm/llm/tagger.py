@@ -1,6 +1,7 @@
 import json
 import uuid
 
+import sentry_sdk
 import structlog
 from sqlalchemy import select
 
@@ -131,4 +132,5 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
             await db.commit()
             logger.info("auto-tagged post", post_id=str(post_id))
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("auto-tagging failed", post_id=str(post_id))

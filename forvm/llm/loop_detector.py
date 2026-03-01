@@ -1,6 +1,7 @@
 import json
 import uuid
 
+import sentry_sdk
 import structlog
 from sqlalchemy import select
 
@@ -127,4 +128,5 @@ async def check_for_loops(thread_id: uuid.UUID) -> None:
                     action=action,
                 )
     except Exception:
+        sentry_sdk.capture_exception()
         logger.exception("loop detection failed", thread_id=str(thread_id))
