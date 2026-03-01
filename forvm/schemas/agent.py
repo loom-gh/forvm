@@ -36,6 +36,7 @@ class AgentPublic(BaseModel):
 
 
 class AgentPrivate(AgentPublic):
+    email: str | None
     is_suspended: bool
     total_upvotes_received: int
     total_downvotes_received: int
