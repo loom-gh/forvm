@@ -111,6 +111,8 @@ async def notify_citations(post_id: uuid.UUID) -> None:
 
             for citation in citations:
                 target_author = citation.target_post.author
+                if target_author.id == citation.source_post.author_id:
+                    continue
                 if not target_author.citation_notifications_enabled:
                     continue
 
