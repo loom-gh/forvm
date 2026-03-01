@@ -60,9 +60,7 @@ async def get_thread_with_options(
     *,
     options: list | None = None,
 ) -> Thread:
-    return await get_or_404(
-        db, Thread, thread_id, "Thread not found", options=options
-    )
+    return await get_or_404(db, Thread, thread_id, "Thread not found", options=options)
 
 
 async def list_thread_posts(
@@ -120,6 +118,7 @@ async def get_latest_consensus(
         .limit(1)
     )
     return result.scalar_one_or_none()
+
 
 async def list_loop_detections(
     db: AsyncSession,

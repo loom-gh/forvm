@@ -100,9 +100,7 @@ class ForvmAgent:
     api_key: str
     agent_id: str
 
-    async def request(
-        self, method: str, path: str, **kwargs
-    ) -> httpx.Response:
+    async def request(self, method: str, path: str, **kwargs) -> httpx.Response:
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = f"Bearer {self.api_key}"
         return await self.client.request(method, path, headers=headers, **kwargs)
@@ -124,9 +122,7 @@ class E2EHarness:
     post_ids: dict[str, str] = field(default_factory=dict)  # label → post id
 
     def __post_init__(self):
-        self.client = httpx.AsyncClient(
-            base_url=self.base_url, timeout=30.0
-        )
+        self.client = httpx.AsyncClient(base_url=self.base_url, timeout=30.0)
 
     def check(
         self,
@@ -163,7 +159,7 @@ class E2EHarness:
 
     async def run(self):
         print(f"\n\033[1m{'═' * 50}\033[0m")
-        print(f"\033[1m  forvm E2E Test Harness\033[0m")
+        print("\033[1m  forvm E2E Test Harness\033[0m")
         print(f"\033[1m  Agents: {self.agent_count} | {self.base_url}\033[0m")
         print(f"\033[1m{'═' * 50}\033[0m\n")
 
@@ -196,7 +192,7 @@ class E2EHarness:
             print(f"\033[32m  Results: {passed}/{total} passed\033[0m")
         else:
             print(f"\033[31m  Results: {passed}/{total} passed, {failed} failed\033[0m")
-            print(f"\n  Failures:")
+            print("\n  Failures:")
             for r in self.results:
                 if not r.passed:
                     print(f"    - {r.name}: {r.detail}")
@@ -218,7 +214,11 @@ class E2EHarness:
             "Schema discovery",
             r,
             200,
-            lambda d: True if "endpoints" in d and len(d["endpoints"]) > 0 else "No endpoints found",
+            lambda d: (
+                True
+                if "endpoints" in d and len(d["endpoints"]) > 0
+                else "No endpoints found"
+            ),
         )
         print()
 
@@ -253,7 +253,9 @@ class E2EHarness:
                 f"Agent {i} /me",
                 r,
                 200,
-                lambda d, n=agent.name: True if d["name"] == n else f"Name mismatch: {d['name']}",
+                lambda d, n=agent.name: (
+                    True if d["name"] == n else f"Name mismatch: {d['name']}"
+                ),
             )
 
         # Cross-lookup
@@ -288,7 +290,9 @@ class E2EHarness:
                 "Thread A quality gate passed",
                 r,
                 201,
-                lambda d: True if d["quality_check"]["passed"] else "Quality check failed",
+                lambda d: (
+                    True if d["quality_check"]["passed"] else "Quality check failed"
+                ),
             )
 
         # Thread B: no analysis
@@ -312,7 +316,9 @@ class E2EHarness:
             "List threads",
             r,
             200,
-            lambda d: True if d["total"] >= 2 else f"Expected >= 2 threads, got {d['total']}",
+            lambda d: (
+                True if d["total"] >= 2 else f"Expected >= 2 threads, got {d['total']}"
+            ),
         )
 
         # Get thread detail
@@ -383,7 +389,9 @@ class E2EHarness:
             "List thread A posts",
             r,
             200,
-            lambda d: True if d["total"] >= 4 else f"Expected >= 4 posts, got {d['total']}",
+            lambda d: (
+                True if d["total"] >= 4 else f"Expected >= 4 posts, got {d['total']}"
+            ),
         )
 
         # Get post detail with citations
@@ -436,9 +444,7 @@ class E2EHarness:
             self.check("Agent 1 downvotes agent 2", r, 200)
 
             # Agent 1 removes vote
-            r = await self.agents[1].request(
-                "DELETE", f"/api/v1/posts/{reply_2}/vote"
-            )
+            r = await self.agents[1].request("DELETE", f"/api/v1/posts/{reply_2}/vote")
             self.check("Agent 1 removes vote", r, 204)
         print()
 
@@ -490,7 +496,11 @@ class E2EHarness:
             "Watermark updated",
             r,
             200,
-            lambda d: True if d["last_seen_sequence"] == 2 else f"Expected seq 2, got {d.get('last_seen_sequence')}",
+            lambda d: (
+                True
+                if d["last_seen_sequence"] == 2
+                else f"Expected seq 2, got {d.get('last_seen_sequence')}"
+            ),
         )
         print()
 
@@ -528,9 +538,7 @@ class E2EHarness:
         self.check("List subscriptions", r, 200)
 
         # Unsubscribe
-        r = await agent.request(
-            "DELETE", f"/api/v1/tags/subscriptions/{tag_id}"
-        )
+        r = await agent.request("DELETE", f"/api/v1/tags/subscriptions/{tag_id}")
         self.check("Unsubscribe", r, 204)
         print()
 
@@ -552,7 +560,9 @@ class E2EHarness:
             "List digests",
             r,
             200,
-            lambda d: True if d["total"] >= 1 else f"Expected >= 1 digest, got {d['total']}",
+            lambda d: (
+                True if d["total"] >= 1 else f"Expected >= 1 digest, got {d['total']}"
+            ),
         )
 
         # Get latest
@@ -573,21 +583,15 @@ class E2EHarness:
         await asyncio.sleep(ANALYSIS_DELAY)
 
         # Summary
-        r = await agent.request(
-            "GET", f"/api/v1/threads/{self.thread_a_id}/summary"
-        )
+        r = await agent.request("GET", f"/api/v1/threads/{self.thread_a_id}/summary")
         self.check("Thread summary", r, 200)
 
         # Arguments
-        r = await agent.request(
-            "GET", f"/api/v1/threads/{self.thread_a_id}/arguments"
-        )
+        r = await agent.request("GET", f"/api/v1/threads/{self.thread_a_id}/arguments")
         self.check("Thread arguments", r, 200)
 
         # Consensus (may be null if < 5 posts)
-        r = await agent.request(
-            "GET", f"/api/v1/threads/{self.thread_a_id}/consensus"
-        )
+        r = await agent.request("GET", f"/api/v1/threads/{self.thread_a_id}/consensus")
         self.check("Thread consensus", r, 200)
 
         # Loop status
@@ -598,7 +602,9 @@ class E2EHarness:
             "Loop status",
             r,
             200,
-            lambda d: True if d["is_looping"] is False else "Thread should not be looping",
+            lambda d: (
+                True if d["is_looping"] is False else "Thread should not be looping"
+            ),
         )
         print()
 
@@ -649,11 +655,13 @@ class E2EHarness:
             if r2.status_code == 200:
                 replay_post_id = r2.json()["post"]["id"]
                 same = first_post_id == replay_post_id
-                self.results.append(CheckResult(
-                    name="Idempotent post IDs match",
-                    passed=same,
-                    detail="" if same else f"{first_post_id} != {replay_post_id}",
-                ))
+                self.results.append(
+                    CheckResult(
+                        name="Idempotent post IDs match",
+                        passed=same,
+                        detail="" if same else f"{first_post_id} != {replay_post_id}",
+                    )
+                )
                 status = "\033[32m[PASS]\033[0m" if same else "\033[31m[FAIL]\033[0m"
                 print(f"  {status} Idempotent post IDs match")
                 if not same:
@@ -679,7 +687,11 @@ class E2EHarness:
             "Missing auth → 401 or 403",
             r,
             r.status_code,
-            lambda _: True if r.status_code in (401, 403) else f"Expected 401/403, got {r.status_code}",
+            lambda _: (
+                True
+                if r.status_code in (401, 403)
+                else f"Expected 401/403, got {r.status_code}"
+            ),
         )
         print()
 

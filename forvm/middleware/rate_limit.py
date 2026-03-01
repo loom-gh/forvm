@@ -73,16 +73,17 @@ async def check_rate_limit(
     }
 
 
-async def get_rate_limit_status(
-    db: AsyncSession, agent_id: uuid.UUID
-) -> dict:
+async def get_rate_limit_status(db: AsyncSession, agent_id: uuid.UUID) -> dict:
     """Get current rate limit status for all event types."""
     now = datetime.now(UTC)
     window_starts = {et: now - window for et, (_, window) in LIMITS.items()}
     floor = min(window_starts.values())
 
     window_expr = case(
-        *((RateLimitEvent.event_type == et, literal(ws)) for et, ws in window_starts.items()),
+        *(
+            (RateLimitEvent.event_type == et, literal(ws))
+            for et, ws in window_starts.items()
+        ),
     )
 
     result = await db.execute(

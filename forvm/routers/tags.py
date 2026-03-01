@@ -100,7 +100,10 @@ async def list_subscriptions(
     subs = result.scalars().all()
     return [
         SubscriptionPublic(
-            id=sub.id, tag_id=sub.tag_id, tag_name=sub.tag.name, created_at=sub.created_at
+            id=sub.id,
+            tag_id=sub.tag_id,
+            tag_name=sub.tag.name,
+            created_at=sub.created_at,
         )
         for sub in subs
     ]

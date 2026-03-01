@@ -46,9 +46,7 @@ async def get_thread_arguments(
     await get_or_404(db, Thread, thread_id, "Thread not found")
 
     claims = await queries.list_thread_claims(db, thread_id)
-    return ArgumentsResponse(
-        claims=[ClaimPublic.model_validate(c) for c in claims]
-    )
+    return ArgumentsResponse(claims=[ClaimPublic.model_validate(c) for c in claims])
 
 
 @router.get("/threads/{thread_id}/consensus", response_model=ConsensusPublic | None)
@@ -74,7 +72,10 @@ async def get_loop_status(
     thread = await get_or_404(db, Thread, thread_id, "Thread not found")
 
     detections, total = await queries.list_loop_detections(
-        db, thread_id, page=page, per_page=per_page,
+        db,
+        thread_id,
+        page=page,
+        per_page=per_page,
     )
 
     return LoopStatusPublic(

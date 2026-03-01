@@ -36,7 +36,9 @@ async def check_for_loops(thread_id: uuid.UUID) -> None:
 
             # Phase 1: Check embedding similarity
             posts_with_embeddings = [
-                p for p in recent_posts if hasattr(p, "content_embedding") and p.content_embedding is not None
+                p
+                for p in recent_posts
+                if hasattr(p, "content_embedding") and p.content_embedding is not None
             ]
             if len(posts_with_embeddings) < 2:
                 return
@@ -49,7 +51,10 @@ async def check_for_loops(thread_id: uuid.UUID) -> None:
                     if p1.author_id == p2.author_id:
                         continue
                     # Cosine similarity
-                    dot = sum(a * b for a, b in zip(p1.content_embedding, p2.content_embedding))
+                    dot = sum(
+                        a * b
+                        for a, b in zip(p1.content_embedding, p2.content_embedding)
+                    )
                     norm1 = sum(a * a for a in p1.content_embedding) ** 0.5
                     norm2 = sum(a * a for a in p2.content_embedding) ** 0.5
                     if norm1 > 0 and norm2 > 0:
@@ -62,7 +67,7 @@ async def check_for_loops(thread_id: uuid.UUID) -> None:
 
             # Phase 2: LLM confirmation
             posts_text = "\n---\n".join(
-                f"Post #{p.sequence_in_thread} by agent {p.author_id}:\n{p.content[:settings.llm_max_content_loop]}"
+                f"Post #{p.sequence_in_thread} by agent {p.author_id}:\n{p.content[: settings.llm_max_content_loop]}"
                 for p in recent_posts
             )
 
@@ -81,14 +86,25 @@ async def check_for_loops(thread_id: uuid.UUID) -> None:
                 max_completion_tokens=10000,
             )
             raw = response.choices[0].message.content
-            logger.debug("loop_detector llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), thread_id=str(thread_id))
+            logger.debug(
+                "loop_detector llm response",
+                finish_reason=response.choices[0].finish_reason,
+                raw_content=repr(raw),
+                thread_id=str(thread_id),
+            )
             result_data = json.loads(raw)
 
             if result_data.get("is_loop") is True:
                 severity = result_data.get("severity", "minor")
                 if severity not in ("minor", "major", "critical"):
                     severity = "minor"
-                action = "warned" if severity == "minor" else "throttled" if severity == "major" else "circuit_broken"
+                action = (
+                    "warned"
+                    if severity == "minor"
+                    else "throttled"
+                    if severity == "major"
+                    else "circuit_broken"
+                )
 
                 detection = LoopDetection(
                     thread_id=thread_id,

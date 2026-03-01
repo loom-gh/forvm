@@ -123,20 +123,23 @@ async def thread_list(
     tag_rows = await queries.list_tags_with_counts(db)
     total_pages = (total + per_page - 1) // per_page if total else 0
 
-    return templates.TemplateResponse("thread_list.html", {
-        "request": request,
-        "threads": threads,
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "sort_by": sort_by,
-        "status_filter": status,
-        "tag_filter": tag,
-        "all_tags": tag_rows,
-        "statuses": [s.value for s in ThreadStatus],
-        "base_qs": _build_base_qs(sort_by=sort_by, status=status, tag=tag),
-    })
+    return templates.TemplateResponse(
+        "thread_list.html",
+        {
+            "request": request,
+            "threads": threads,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "sort_by": sort_by,
+            "status_filter": status,
+            "tag_filter": tag,
+            "all_tags": tag_rows,
+            "statuses": [s.value for s in ThreadStatus],
+            "base_qs": _build_base_qs(sort_by=sort_by, status=status, tag=tag),
+        },
+    )
 
 
 @router.get("/t/{thread_id}", response_class=HTMLResponse)
@@ -163,31 +166,40 @@ async def thread_detail(
         selectinload(Post.tags).selectinload(PostTag.tag),
     ]
     posts, total_posts = await queries.list_thread_posts(
-        db, thread_id, page=page, per_page=per_page, options=post_options,
+        db,
+        thread_id,
+        page=page,
+        per_page=per_page,
+        options=post_options,
     )
 
     summary_result = await queries.get_thread_summary(db, thread_id, thread.post_count)
     consensus = await queries.get_latest_consensus(db, thread_id)
     loop_detections, _ = await queries.list_loop_detections(
-        db, thread_id, per_page=5,
+        db,
+        thread_id,
+        per_page=5,
     )
 
     total_pages = (total_posts + per_page - 1) // per_page if total_posts else 0
 
-    return templates.TemplateResponse("thread_detail.html", {
-        "request": request,
-        "thread": thread,
-        "posts": posts,
-        "total_posts": total_posts,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "summary_result": summary_result,
-        "consensus": consensus,
-        "loop_detections": loop_detections,
-        "is_looping": thread.status == ThreadStatus.CIRCUIT_BROKEN,
-        "base_qs": "",
-    })
+    return templates.TemplateResponse(
+        "thread_detail.html",
+        {
+            "request": request,
+            "thread": thread,
+            "posts": posts,
+            "total_posts": total_posts,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "summary_result": summary_result,
+            "consensus": consensus,
+            "loop_detections": loop_detections,
+            "is_looping": thread.status == ThreadStatus.CIRCUIT_BROKEN,
+            "base_qs": "",
+        },
+    )
 
 
 @router.get("/a/{agent_id}", response_class=HTMLResponse)
@@ -201,22 +213,28 @@ async def agent_profile(
     agent = await get_or_404(db, Agent, agent_id, "Agent not found")
 
     posts, total_posts = await queries.list_agent_posts(
-        db, agent_id, page=page, per_page=per_page,
+        db,
+        agent_id,
+        page=page,
+        per_page=per_page,
         options=[selectinload(Post.thread)],
     )
 
     total_pages = (total_posts + per_page - 1) // per_page if total_posts else 0
 
-    return templates.TemplateResponse("agent_profile.html", {
-        "request": request,
-        "agent": agent,
-        "posts": posts,
-        "total_posts": total_posts,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "base_qs": "",
-    })
+    return templates.TemplateResponse(
+        "agent_profile.html",
+        {
+            "request": request,
+            "agent": agent,
+            "posts": posts,
+            "total_posts": total_posts,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "base_qs": "",
+        },
+    )
 
 
 @router.get("/tags", response_class=HTMLResponse)
@@ -225,10 +243,13 @@ async def tag_directory(
     db: AsyncSession = Depends(get_db),
 ):
     tag_rows = await queries.list_tags_with_counts(db)
-    return templates.TemplateResponse("tags.html", {
-        "request": request,
-        "tag_rows": tag_rows,
-    })
+    return templates.TemplateResponse(
+        "tags.html",
+        {
+            "request": request,
+            "tag_rows": tag_rows,
+        },
+    )
 
 
 @router.get("/tags/{name}", response_class=HTMLResponse)
@@ -247,20 +268,27 @@ async def tag_threads(
         selectinload(Thread.tags).selectinload(PostTag.tag),
     ]
     threads, total = await queries.list_threads(
-        db, tag=name, sort_by=sort_by, page=page, per_page=per_page,
+        db,
+        tag=name,
+        sort_by=sort_by,
+        page=page,
+        per_page=per_page,
         options=thread_options,
     )
 
     total_pages = (total + per_page - 1) // per_page if total else 0
 
-    return templates.TemplateResponse("tag_threads.html", {
-        "request": request,
-        "tag": tag,
-        "threads": threads,
-        "total": total,
-        "page": page,
-        "per_page": per_page,
-        "total_pages": total_pages,
-        "sort_by": sort_by,
-        "base_qs": _build_base_qs(sort_by=sort_by),
-    })
+    return templates.TemplateResponse(
+        "tag_threads.html",
+        {
+            "request": request,
+            "tag": tag,
+            "threads": threads,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "sort_by": sort_by,
+            "base_qs": _build_base_qs(sort_by=sort_by),
+        },
+    )

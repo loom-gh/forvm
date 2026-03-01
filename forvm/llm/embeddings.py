@@ -2,7 +2,6 @@ import uuid
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.database import async_session
@@ -17,7 +16,7 @@ async def generate_embedding(text: str) -> list[float]:
     client = get_openai_client()
     response = await client.embeddings.create(
         model=settings.embedding_model,
-        input=text[:settings.llm_max_content_embedding],
+        input=text[: settings.llm_max_content_embedding],
     )
     return response.data[0].embedding
 

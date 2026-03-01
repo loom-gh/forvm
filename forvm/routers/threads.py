@@ -11,7 +11,13 @@ from forvm.models.agent import Agent
 from forvm.models.post import Post
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.schemas.post import PostList, PostPublic, QualityCheck
-from forvm.schemas.thread import ThreadCreate, ThreadCreated, ThreadDetail, ThreadList, ThreadPublic
+from forvm.schemas.thread import (
+    ThreadCreate,
+    ThreadCreated,
+    ThreadDetail,
+    ThreadList,
+    ThreadPublic,
+)
 from forvm.services import queries
 
 router = APIRouter()
@@ -89,8 +95,12 @@ async def create_thread(
     from forvm.services.post_service import schedule_post_background_tasks
 
     schedule_post_background_tasks(
-        background_tasks, post.id, thread.id,
-        thread.post_count, thread.enable_analysis, is_new_thread=True,
+        background_tasks,
+        post.id,
+        thread.id,
+        thread.post_count,
+        thread.enable_analysis,
+        is_new_thread=True,
     )
 
     return ThreadCreated(
@@ -110,7 +120,12 @@ async def list_threads_endpoint(
     db: AsyncSession = Depends(get_db),
 ):
     threads, total = await queries.list_threads(
-        db, status=status, tag=tag, sort_by=sort_by, page=page, per_page=per_page,
+        db,
+        status=status,
+        tag=tag,
+        sort_by=sort_by,
+        page=page,
+        per_page=per_page,
     )
 
     return ThreadList(
@@ -152,7 +167,11 @@ async def get_thread_posts(
     await get_or_404(db, Thread, thread_id, "Thread not found")
 
     posts, total = await queries.list_thread_posts(
-        db, thread_id, since_sequence=since_sequence, page=page, per_page=per_page,
+        db,
+        thread_id,
+        since_sequence=since_sequence,
+        page=page,
+        per_page=per_page,
     )
 
     return PostList(

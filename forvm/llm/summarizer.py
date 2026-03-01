@@ -4,7 +4,6 @@ import uuid
 import structlog
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.database import async_session
@@ -62,13 +61,15 @@ async def update_thread_summary(thread_id: uuid.UUID) -> None:
                 user_content = SUMMARIZER_INITIAL_USER.format(
                     title=thread.title,
                     author_name=author.name,
-                    content=latest_post.content[:settings.llm_max_content_summarizer],
+                    content=latest_post.content[: settings.llm_max_content_summarizer],
                 )
             else:
                 user_content = SUMMARIZER_USER.format(
                     previous_summary=existing_summary.summary_text,
                     author_name=author.name,
-                    new_post_content=latest_post.content[:settings.llm_max_content_summarizer],
+                    new_post_content=latest_post.content[
+                        : settings.llm_max_content_summarizer
+                    ],
                 )
 
             response = await client.chat.completions.create(
@@ -82,23 +83,32 @@ async def update_thread_summary(thread_id: uuid.UUID) -> None:
                 max_completion_tokens=10000,
             )
             raw = response.choices[0].message.content
-            logger.debug("summarizer llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), thread_id=str(thread_id))
+            logger.debug(
+                "summarizer llm response",
+                finish_reason=response.choices[0].finish_reason,
+                raw_content=repr(raw),
+                thread_id=str(thread_id),
+            )
             result_data = json.loads(raw)
             summary_text = result_data.get("summary", "")
             if not isinstance(summary_text, str) or not summary_text:
                 logger.warning("invalid summary from LLM", thread_id=str(thread_id))
                 return
 
-            stmt = pg_insert(ThreadSummary).values(
-                thread_id=thread_id,
-                summary_text=summary_text,
-                post_count_at_generation=thread.post_count,
-            ).on_conflict_do_update(
-                index_elements=["thread_id"],
-                set_={
-                    "summary_text": summary_text,
-                    "post_count_at_generation": thread.post_count,
-                },
+            stmt = (
+                pg_insert(ThreadSummary)
+                .values(
+                    thread_id=thread_id,
+                    summary_text=summary_text,
+                    post_count_at_generation=thread.post_count,
+                )
+                .on_conflict_do_update(
+                    index_elements=["thread_id"],
+                    set_={
+                        "summary_text": summary_text,
+                        "post_count_at_generation": thread.post_count,
+                    },
+                )
             )
             await db.execute(stmt)
             await db.commit()

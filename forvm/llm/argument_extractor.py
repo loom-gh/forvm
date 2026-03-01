@@ -49,7 +49,7 @@ async def extract_arguments(post_id: uuid.UUID) -> None:
                         "role": "user",
                         "content": ARGUMENT_EXTRACTOR_USER.format(
                             recent_claims=recent_claims_text,
-                            content=post.content[:settings.llm_max_content_argument],
+                            content=post.content[: settings.llm_max_content_argument],
                         ),
                     },
                 ],
@@ -58,12 +58,19 @@ async def extract_arguments(post_id: uuid.UUID) -> None:
                 timeout=300,
             )
             raw = response.choices[0].message.content
-            logger.debug("argument_extractor llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), post_id=str(post_id))
+            logger.debug(
+                "argument_extractor llm response",
+                finish_reason=response.choices[0].finish_reason,
+                raw_content=repr(raw),
+                post_id=str(post_id),
+            )
             result_data = json.loads(raw)
 
             valid_types = {"assertion", "evidence", "rebuttal", "concession"}
             for claim_data in result_data.get("claims", []):
-                if not isinstance(claim_data, dict) or not isinstance(claim_data.get("claim_text"), str):
+                if not isinstance(claim_data, dict) or not isinstance(
+                    claim_data.get("claim_text"), str
+                ):
                     continue
                 claim_type = claim_data.get("type", "assertion")
                 if claim_type not in valid_types:

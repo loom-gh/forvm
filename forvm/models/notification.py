@@ -3,7 +3,7 @@ import uuid
 
 from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from forvm.database import Base
 from forvm.models.mixins import TimestampMixin, UUIDMixin

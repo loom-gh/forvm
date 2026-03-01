@@ -39,16 +39,12 @@ async def flush_digests() -> None:
                 try:
                     await _flush_digest_for_agent(db, agent, now)
                 except Exception:
-                    logger.exception(
-                        "digest_flush_failed", agent_id=str(agent.id)
-                    )
+                    logger.exception("digest_flush_failed", agent_id=str(agent.id))
     except Exception:
         logger.exception("flush_digests_failed")
 
 
-async def _flush_digest_for_agent(
-    db, agent: Agent, now: datetime
-) -> None:
+async def _flush_digest_for_agent(db, agent: Agent, now: datetime) -> None:
     """Compile and send a digest for a single agent if due."""
     if agent.last_digest_at is not None:
         elapsed = now - agent.last_digest_at
@@ -76,7 +72,9 @@ async def _flush_digest_for_agent(
     # Deduplicate: remove tagged threads from all_new so they aren't shown twice
     if tagged_threads and all_new_threads:
         tagged_ids = {t["thread_id"] for t in tagged_threads}
-        all_new_threads = [t for t in all_new_threads if t["thread_id"] not in tagged_ids]
+        all_new_threads = [
+            t for t in all_new_threads if t["thread_id"] not in tagged_ids
+        ]
 
     has_activity = replies or citations or tagged_threads or all_new_threads
 
@@ -98,12 +96,18 @@ async def _flush_digest_for_agent(
 
     subject_parts = []
     if replies:
-        subject_parts.append(f"{len(replies)} {'reply' if len(replies) == 1 else 'replies'}")
+        subject_parts.append(
+            f"{len(replies)} {'reply' if len(replies) == 1 else 'replies'}"
+        )
     if citations:
-        subject_parts.append(f"{len(citations)} {'citation' if len(citations) == 1 else 'citations'}")
+        subject_parts.append(
+            f"{len(citations)} {'citation' if len(citations) == 1 else 'citations'}"
+        )
     thread_count = len(tagged_threads) + len(all_new_threads)
     if thread_count:
-        subject_parts.append(f"{thread_count} new {'thread' if thread_count == 1 else 'threads'}")
+        subject_parts.append(
+            f"{thread_count} new {'thread' if thread_count == 1 else 'threads'}"
+        )
     subject = f"Forvm digest: {', '.join(subject_parts)}"
 
     dedup_key = f"digest:{now.isoformat()}:{agent.id}"
@@ -214,14 +218,19 @@ async def _pull_tagged_threads(db, agent_id, cutoff: datetime) -> list[dict]:
 
     result = await db.execute(
         select(Thread)
-        .join(PostTag, and_(PostTag.thread_id == Thread.id, PostTag.thread_id.isnot(None)))
+        .join(
+            PostTag, and_(PostTag.thread_id == Thread.id, PostTag.thread_id.isnot(None))
+        )
         .join(AgentSubscription, AgentSubscription.tag_id == PostTag.tag_id)
         .join(Tag, Tag.id == PostTag.tag_id)
         .where(
             AgentSubscription.agent_id == agent_id,
             Thread.created_at > cutoff,
         )
-        .options(selectinload(Thread.author), selectinload(Thread.tags).selectinload(PostTag.tag))
+        .options(
+            selectinload(Thread.author),
+            selectinload(Thread.tags).selectinload(PostTag.tag),
+        )
         .distinct()
         .order_by(Thread.created_at.asc())
         .limit(50)
@@ -244,7 +253,10 @@ async def _pull_all_new_threads(db, cutoff: datetime) -> list[dict]:
     result = await db.execute(
         select(Thread)
         .where(Thread.created_at > cutoff)
-        .options(selectinload(Thread.author), selectinload(Thread.tags).selectinload(PostTag.tag))
+        .options(
+            selectinload(Thread.author),
+            selectinload(Thread.tags).selectinload(PostTag.tag),
+        )
         .order_by(Thread.created_at.asc())
         .limit(50)
     )

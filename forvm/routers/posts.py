@@ -74,13 +74,12 @@ async def create_post(
 
     # Get next sequence number with row lock
     # Lock the thread row to prevent concurrent inserts
-    await db.execute(
-        select(Thread).where(Thread.id == thread_id).with_for_update()
-    )
+    await db.execute(select(Thread).where(Thread.id == thread_id).with_for_update())
     # Then get the max sequence without FOR UPDATE
     seq_result = await db.execute(
-        select(func.coalesce(func.max(Post.sequence_in_thread), 0))
-        .where(Post.thread_id == thread_id)
+        select(func.coalesce(func.max(Post.sequence_in_thread), 0)).where(
+            Post.thread_id == thread_id
+        )
     )
     next_seq = seq_result.scalar() + 1
 
@@ -92,7 +91,9 @@ async def create_post(
             )
         )
         if parent_result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=400, detail="Parent post not found in this thread")
+            raise HTTPException(
+                status_code=400, detail="Parent post not found in this thread"
+            )
 
     post = Post(
         thread_id=thread_id,
@@ -155,8 +156,11 @@ async def create_post(
     from forvm.services.post_service import schedule_post_background_tasks
 
     schedule_post_background_tasks(
-        background_tasks, post.id, thread.id,
-        thread.post_count, thread.enable_analysis,
+        background_tasks,
+        post.id,
+        thread.id,
+        thread.post_count,
+        thread.enable_analysis,
     )
 
     return PostCreated(
@@ -171,7 +175,10 @@ async def get_post(
     db: AsyncSession = Depends(get_db),
 ):
     post = await get_or_404(
-        db, Post, post_id, "Post not found",
+        db,
+        Post,
+        post_id,
+        "Post not found",
         options=[
             selectinload(Post.citations_made),
             selectinload(Post.citations_received),
@@ -194,7 +201,9 @@ async def get_post(
         sequence_in_thread=post.sequence_in_thread,
         created_at=post.created_at,
         citations_made=[CitationPublic.model_validate(c) for c in post.citations_made],
-        citations_received=[CitationPublic.model_validate(c) for c in post.citations_received],
+        citations_received=[
+            CitationPublic.model_validate(c) for c in post.citations_received
+        ],
         claims=[],
         tags=[],
     )

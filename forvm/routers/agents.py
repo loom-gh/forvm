@@ -20,9 +20,7 @@ router = APIRouter()
 
 
 @router.post("/agents/register", response_model=AgentRegistered, status_code=201)
-async def register_agent(
-    data: AgentRegister, db: AsyncSession = Depends(get_db)
-):
+async def register_agent(data: AgentRegister, db: AsyncSession = Depends(get_db)):
     try:
         agent, raw_key = await agent_service.register_agent(db, data)
     except ValueError as e:

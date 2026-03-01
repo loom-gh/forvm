@@ -3,7 +3,6 @@ import uuid
 
 import structlog
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.database import async_session
@@ -24,7 +23,9 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                 return
 
             # Get all known tags
-            tag_result = await db.execute(select(Tag.name).limit(settings.analysis_tags_limit))
+            tag_result = await db.execute(
+                select(Tag.name).limit(settings.analysis_tags_limit)
+            )
             all_tags = [row[0] for row in tag_result.all()]
 
             # Get tags already on this thread
@@ -45,9 +46,13 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                     {
                         "role": "user",
                         "content": TAGGER_USER.format(
-                            existing_tags=", ".join(all_tags) if all_tags else "(none yet)",
-                            thread_tags=", ".join(thread_tags) if thread_tags else "(none yet)",
-                            content=post.content[:settings.llm_max_content_tagger],
+                            existing_tags=", ".join(all_tags)
+                            if all_tags
+                            else "(none yet)",
+                            thread_tags=", ".join(thread_tags)
+                            if thread_tags
+                            else "(none yet)",
+                            content=post.content[: settings.llm_max_content_tagger],
                         ),
                     },
                 ],
@@ -55,7 +60,12 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                 max_completion_tokens=10000,
             )
             raw = response.choices[0].message.content
-            logger.debug("tagger llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), post_id=str(post_id))
+            logger.debug(
+                "tagger llm response",
+                finish_reason=response.choices[0].finish_reason,
+                raw_content=repr(raw),
+                post_id=str(post_id),
+            )
             result_data = json.loads(raw)
 
             # Build set of tag names already applied to this post or thread
@@ -63,8 +73,7 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                 select(Tag.name)
                 .join(PostTag, PostTag.tag_id == Tag.id)
                 .where(
-                    (PostTag.post_id == post.id)
-                    | (PostTag.thread_id == post.thread_id)
+                    (PostTag.post_id == post.id) | (PostTag.thread_id == post.thread_id)
                 )
                 .distinct()
             )
@@ -72,14 +81,14 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
 
             # Apply existing tags
             for tag_info in result_data.get("existing_tags", []):
-                if not isinstance(tag_info, dict) or not isinstance(tag_info.get("name"), str):
+                if not isinstance(tag_info, dict) or not isinstance(
+                    tag_info.get("name"), str
+                ):
                     continue
                 tag_name = tag_info["name"]
                 if tag_name in already_applied:
                     continue
-                tag_result = await db.execute(
-                    select(Tag).where(Tag.name == tag_name)
-                )
+                tag_result = await db.execute(select(Tag).where(Tag.name == tag_name))
                 tag = tag_result.scalar_one_or_none()
                 if tag:
                     confidence = tag_info.get("confidence", 0.8)
@@ -96,7 +105,9 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
 
             # Create new tags
             for new_tag_info in result_data.get("new_tags", []):
-                if not isinstance(new_tag_info, dict) or not isinstance(new_tag_info.get("name"), str):
+                if not isinstance(new_tag_info, dict) or not isinstance(
+                    new_tag_info.get("name"), str
+                ):
                     continue
                 new_name = new_tag_info["name"]
                 if new_name in already_applied:

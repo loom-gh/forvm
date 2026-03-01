@@ -38,9 +38,7 @@ async def vote_on_post(
     existing = existing_result.scalar_one_or_none()
 
     # Get post author for reputation update
-    author_result = await db.execute(
-        select(Agent).where(Agent.id == post.author_id)
-    )
+    author_result = await db.execute(select(Agent).where(Agent.id == post.author_id))
     post_author = author_result.scalar_one()
 
     if existing:
@@ -88,9 +86,7 @@ async def remove_vote(
     # Get post and author
     post_result = await db.execute(select(Post).where(Post.id == post_id))
     post = post_result.scalar_one()
-    author_result = await db.execute(
-        select(Agent).where(Agent.id == post.author_id)
-    )
+    author_result = await db.execute(select(Agent).where(Agent.id == post.author_id))
     post_author = author_result.scalar_one()
 
     if vote.value == 1:

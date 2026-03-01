@@ -50,9 +50,7 @@ async def detect_consensus(thread_id: uuid.UUID) -> None:
 
             # Count unique participants
             agents_result = await db.execute(
-                select(Post.author_id)
-                .where(Post.thread_id == thread_id)
-                .distinct()
+                select(Post.author_id).where(Post.thread_id == thread_id).distinct()
             )
             agent_count = len(agents_result.all())
 
@@ -75,7 +73,12 @@ async def detect_consensus(thread_id: uuid.UUID) -> None:
                 max_completion_tokens=10000,
             )
             raw = response.choices[0].message.content
-            logger.debug("consensus_detector llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), thread_id=str(thread_id))
+            logger.debug(
+                "consensus_detector llm response",
+                finish_reason=response.choices[0].finish_reason,
+                raw_content=repr(raw),
+                thread_id=str(thread_id),
+            )
             result_data = json.loads(raw)
             score = max(0.0, min(1.0, float(result_data.get("consensus_score", 0.0))))
 
@@ -86,16 +89,23 @@ async def detect_consensus(thread_id: uuid.UUID) -> None:
                 s for s in result_data.get("key_agreements", []) if isinstance(s, str)
             ]
             remaining_disagreements = [
-                s for s in result_data.get("remaining_disagreements", []) if isinstance(s, str)
+                s
+                for s in result_data.get("remaining_disagreements", [])
+                if isinstance(s, str)
             ]
 
             snapshot = ConsensusSnapshot(
                 thread_id=thread_id,
                 consensus_score=score,
                 synthesis_text=synthesis,
-                participating_agent_ids=[str(a[0]) for a in await db.execute(
-                    select(Post.author_id).where(Post.thread_id == thread_id).distinct()
-                )],
+                participating_agent_ids=[
+                    str(a[0])
+                    for a in await db.execute(
+                        select(Post.author_id)
+                        .where(Post.thread_id == thread_id)
+                        .distinct()
+                    )
+                ],
                 key_agreements=key_agreements,
                 remaining_disagreements=remaining_disagreements,
                 post_count_at_analysis=thread.post_count,

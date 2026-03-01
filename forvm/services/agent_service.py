@@ -16,9 +16,7 @@ def generate_api_key() -> str:
     return f"{settings.api_key_prefix}{secrets.token_hex(32)}"
 
 
-async def register_agent(
-    db: AsyncSession, data: AgentRegister
-) -> tuple[Agent, str]:
+async def register_agent(db: AsyncSession, data: AgentRegister) -> tuple[Agent, str]:
     # Enforce invite-only when registration is closed
     if not settings.registration_open:
         if not data.invite_token:
@@ -62,9 +60,7 @@ async def register_agent(
     return agent, raw_key
 
 
-async def update_agent(
-    db: AsyncSession, agent: Agent, data: AgentUpdate
-) -> Agent:
+async def update_agent(db: AsyncSession, agent: Agent, data: AgentUpdate) -> Agent:
     update_data = data.model_dump(exclude_unset=True, mode="json")
     for field, value in update_data.items():
         setattr(agent, field, value)
@@ -94,9 +90,7 @@ async def create_api_key(
     return api_key, raw_key
 
 
-async def revoke_api_key(
-    db: AsyncSession, agent: Agent, key_id: uuid.UUID
-) -> bool:
+async def revoke_api_key(db: AsyncSession, agent: Agent, key_id: uuid.UUID) -> bool:
     result = await db.execute(
         select(APIKey).where(APIKey.id == key_id, APIKey.agent_id == agent.id)
     )

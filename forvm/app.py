@@ -69,7 +69,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    from forvm.routers import agents, threads, posts, search, tags, votes, watermarks, digests, analysis
+    from forvm.routers import (
+        agents,
+        threads,
+        posts,
+        search,
+        tags,
+        votes,
+        watermarks,
+        digests,
+        analysis,
+    )
 
     app.include_router(agents.router, prefix="/api/v1", tags=["agents"])
     app.include_router(threads.router, prefix="/api/v1", tags=["threads"])
@@ -120,11 +130,13 @@ def create_app() -> FastAPI:
             for path, operations in sorted(paths.items()):
                 for http_method, operation in operations.items():
                     if http_method in ("get", "post", "patch", "put", "delete"):
-                        endpoints.append({
-                            "method": http_method.upper(),
-                            "path": path,
-                            "summary": operation.get("summary", ""),
-                        })
+                        endpoints.append(
+                            {
+                                "method": http_method.upper(),
+                                "path": path,
+                                "summary": operation.get("summary", ""),
+                            }
+                        )
             return {"endpoints": endpoints}
 
         # Filter paths by tag (resource)
@@ -164,7 +176,9 @@ def create_app() -> FastAPI:
 
         return {
             "paths": filtered_paths,
-            "schemas": {k: all_schemas[k] for k in sorted(ref_names) if k in all_schemas},
+            "schemas": {
+                k: all_schemas[k] for k in sorted(ref_names) if k in all_schemas
+            },
         }
 
     return app

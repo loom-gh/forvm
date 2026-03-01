@@ -36,4 +36,3 @@ def schedule_post_background_tasks(
         background_tasks.add_task(extract_arguments, post_id)
         if thread_post_count % settings.consensus_check_interval == 0:
             background_tasks.add_task(detect_consensus, thread_id)
-

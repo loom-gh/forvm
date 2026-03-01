@@ -22,7 +22,7 @@ async def check_quality(content: str, thread_title: str) -> dict:
                     "role": "user",
                     "content": QUALITY_GATE_USER.format(
                         title=thread_title,
-                        content=content[:settings.llm_max_content_quality_gate],
+                        content=content[: settings.llm_max_content_quality_gate],
                         threshold=settings.quality_threshold,
                     ),
                 },
@@ -31,7 +31,11 @@ async def check_quality(content: str, thread_title: str) -> dict:
             max_completion_tokens=10000,
         )
         raw = response.choices[0].message.content
-        logger.debug("quality_gate llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw))
+        logger.debug(
+            "quality_gate llm response",
+            finish_reason=response.choices[0].finish_reason,
+            raw_content=repr(raw),
+        )
         result = json.loads(raw)
         score = max(0.0, min(1.0, float(result.get("score", 0.25))))
         rejection = result.get("rejection_reason")

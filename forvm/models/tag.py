@@ -10,7 +10,9 @@ from forvm.models.mixins import TimestampMixin, UUIDMixin
 class Tag(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "tags"
 
-    name: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(
+        String(128), unique=True, nullable=False, index=True
+    )
     description: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
 

@@ -8,9 +8,7 @@ from forvm.schemas.analysis import ClaimPublic as ClaimPublic
 
 class CitationCreate(BaseModel):
     target_post_id: uuid.UUID
-    relationship_type: str = Field(
-        ..., pattern="^(supports|opposes|extends|corrects)$"
-    )
+    relationship_type: str = Field(..., pattern="^(supports|opposes|extends|corrects)$")
     excerpt: str | None = Field(None, max_length=1000)
 
 

@@ -5,10 +5,10 @@ sentry_sdk.init(
     send_default_pii=True,
 )
 
-import uvicorn
+import uvicorn  # noqa: E402
 
-from forvm.app import create_app
-from forvm.config import settings
+from forvm.app import create_app  # noqa: E402
+from forvm.config import settings  # noqa: E402
 
 app = create_app()
 

@@ -31,7 +31,9 @@ async def semantic_search(
                 Post.id,
                 Post.thread_id,
                 Post.content,
-                Post.content_embedding.cosine_distance(query_embedding).label("distance"),
+                Post.content_embedding.cosine_distance(query_embedding).label(
+                    "distance"
+                ),
             )
             .where(Post.content_embedding.is_not(None))
             .order_by("distance")
@@ -56,7 +58,9 @@ async def semantic_search(
             select(
                 Thread.id,
                 Thread.title,
-                Thread.title_embedding.cosine_distance(query_embedding).label("distance"),
+                Thread.title_embedding.cosine_distance(query_embedding).label(
+                    "distance"
+                ),
             )
             .where(Thread.title_embedding.is_not(None))
             .order_by("distance")

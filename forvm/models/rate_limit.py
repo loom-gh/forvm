@@ -10,9 +10,7 @@ from forvm.models.mixins import TimestampMixin, UUIDMixin
 class RateLimitEvent(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "rate_limit_events"
 
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("agents.id"), nullable=False
-    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id"), nullable=False)
     event_type: Mapped[str] = mapped_column(String(32), nullable=False)
     thread_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("threads.id"), nullable=True, index=True

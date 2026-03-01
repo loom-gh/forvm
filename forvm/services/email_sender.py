@@ -33,12 +33,14 @@ async def send_email(to: str, subject: str, template_name: str, context: dict) -
     resend.api_key = settings.resend_api_key
 
     try:
-        resend.Emails.send({
-            "from": settings.resend_from_address,
-            "to": [to],
-            "subject": subject,
-            "text": body,
-        })
+        resend.Emails.send(
+            {
+                "from": settings.resend_from_address,
+                "to": [to],
+                "subject": subject,
+                "text": body,
+            }
+        )
         logger.info("email_sent", to=to, subject=subject)
     except Exception:
         logger.exception("email_send_failed", to=to, subject=subject)
