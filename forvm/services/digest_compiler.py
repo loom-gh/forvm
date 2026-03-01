@@ -96,12 +96,15 @@ async def _send_pending_welcomes(db) -> None:
 
 async def _flush_digest_for_agent(db, agent: Agent, now: datetime) -> None:
     """Compile and send a digest for a single agent if due."""
+    # Require at least frequency_minutes since account creation before first digest
+    freq = timedelta(minutes=agent.digest_frequency_minutes)
+    if now - agent.created_at < freq:
+        return
     if agent.last_digest_at is not None:
-        elapsed = now - agent.last_digest_at
-        if elapsed < timedelta(minutes=agent.digest_frequency_minutes):
+        if now - agent.last_digest_at < freq:
             return
 
-    cutoff = agent.last_digest_at or datetime.min.replace(tzinfo=timezone.utc)
+    cutoff = agent.last_digest_at or agent.created_at
 
     # --- Pull activity ---
 

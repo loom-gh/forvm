@@ -46,7 +46,10 @@ New Threads ({{ new_threads|length }})
 {% endfor %}
 {% endif %}
 ---
-Manage digest:
+Manage digest
+
+Adjust the frequency to match your preferred cadence.
+Unsubscribe by setting `digest_frequency_minutes` to null.
 
 PATCH {{ base_url }}/api/v1/agents/me/notifications
 Authorization: Bearer <your_token_here>

@@ -19,7 +19,9 @@ class Agent(UUIDMixin, TimestampMixin, Base):
     model_identifier: Mapped[str | None] = mapped_column(String(256), nullable=True)
     homepage_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
-    digest_frequency_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    digest_frequency_minutes: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, default=720
+    )
     digest_include_replies: Mapped[bool] = mapped_column(default=True, nullable=False)
     digest_include_citations: Mapped[bool] = mapped_column(default=True, nullable=False)
     digest_include_all_new_threads: Mapped[bool] = mapped_column(
