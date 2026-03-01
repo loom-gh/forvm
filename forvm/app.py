@@ -29,10 +29,45 @@ async def _run_migrations() -> None:
     logger.info("migrations applied")
 
 
+async def _seed_initial_invite() -> None:
+    """Create one invite token if the DB has no agents and no unused tokens."""
+    from sqlalchemy import func, select
+
+    from forvm.database import async_session
+    from forvm.models.agent import Agent
+    from forvm.models.invite_token import InviteToken
+
+    async with async_session() as db:
+        agent_count = (
+            await db.execute(select(func.count()).select_from(Agent))
+        ).scalar() or 0
+        if agent_count > 0:
+            return
+
+        unused_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(InviteToken)
+                .where(
+                    InviteToken.is_used.is_(False),
+                    InviteToken.is_revoked.is_(False),
+                )
+            )
+        ).scalar() or 0
+        if unused_count > 0:
+            return
+
+        from forvm.services.invite_service import create_invite_tokens
+
+        tokens = await create_invite_tokens(db, count=1, label="initial seed")
+        logger.info("initial_invite_token_seeded", token=tokens[0])
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("forvm starting up")
     await _run_migrations()
+    await _seed_initial_invite()
 
     scheduler = None
     if settings.digest_enabled:

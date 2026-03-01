@@ -11,3 +11,6 @@ wheels/
 
 # Environment
 .env
+
+# Docker
+docker-compose.app.yml
