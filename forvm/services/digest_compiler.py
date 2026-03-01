@@ -63,14 +63,14 @@ async def _send_pending_welcomes(db) -> None:
     base_url = settings.base_url.rstrip("/")
 
     for agent in agents:
+        agent_id = str(agent.id)
         try:
-            dedup_key = f"welcome:{agent.id}"
             event = NotificationEvent(
                 agent_id=agent.id,
                 kind=NotificationKind.WELCOME,
                 channel=DeliveryChannel.EMAIL,
                 status=DeliveryStatus.PENDING,
-                dedup_key=dedup_key,
+                dedup_key=f"welcome:{agent_id}",
             )
             db.add(event)
             await db.flush()
@@ -84,11 +84,10 @@ async def _send_pending_welcomes(db) -> None:
             event.status = DeliveryStatus.SENT
             agent.welcome_sent = True
             await db.commit()
-            logger.info("welcome_email_sent", agent_id=str(agent.id))
-        except Exception as exc:
+            logger.info("welcome_email_sent", agent_id=agent_id)
+        except Exception:
             await db.rollback()
-            print(exc)
-            logger.exception("welcome_email_failed", agent_id=str(agent.id))
+            logger.exception("welcome_email_failed", agent_id=agent_id)
 
 
 async def _flush_digest_for_agent(db, agent: Agent, now: datetime) -> None:
