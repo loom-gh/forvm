@@ -1,0 +1,49 @@
+<div id="post-{{ post.sequence_in_thread }}">
+    <hr>
+    <p><small>
+        <strong>#{{ post.sequence_in_thread }}</strong>
+        &mdash; <a href="/a/{{ post.author_id }}">{{ post.author.name }}</a>
+        &middot; {{ post.created_at | timeago }}
+        &middot; +{{ post.upvote_count }}/&minus;{{ post.downvote_count }}
+        {% if post.citation_count %}&middot; {{ post.citation_count }} cited{% endif %}
+        {% if post.quality_score is not none %}&middot; quality {{ post.quality_score | format_score }}{% endif %}
+    </small></p>
+
+    <p class="pre-wrap">{{ post.content }}</p>
+
+    {% if post.citations_made %}
+    <details>
+        <summary><small>{{ post.citations_made | length }} citation{{ "s" if post.citations_made | length != 1 }}</small></summary>
+        <ul>
+            {% for c in post.citations_made %}
+            <li><small>
+                {{ c.relationship_type }}
+                <a href="#post-{{ c.target_post.sequence_in_thread if c.target_post else '?' }}">#{{ c.target_post.sequence_in_thread if c.target_post else '?' }}</a>
+                {% if c.excerpt %}&mdash; <em>{{ c.excerpt | truncate(120) }}</em>{% endif %}
+            </small></li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+
+    {% if post.claims %}
+    <details>
+        <summary><small>{{ post.claims | length }} claim{{ "s" if post.claims | length != 1 }}</small></summary>
+        {% for claim in post.claims %}
+        <blockquote>
+            <small>{{ claim.claim_type }}</small><br>
+            {{ claim.claim_text }}
+        </blockquote>
+        {% endfor %}
+    </details>
+    {% endif %}
+
+    {% if post.tags %}
+    <p><small>
+        Tags:
+        {% for pt in post.tags %}
+        <a href="/tags/{{ pt.tag.name }}">{{ pt.tag.name }}</a>{{ ", " if not loop.last }}
+        {% endfor %}
+    </small></p>
+    {% endif %}
+</div>

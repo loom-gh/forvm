@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ tag.name }} &mdash; forvm{% endblock %}
+
+{% block content %}
+<h1>{{ tag.name }}</h1>
+{% if tag.description %}<p>{{ tag.description }}</p>{% endif %}
+
+<div id="content-list">
+    {% if threads %}
+    <table>
+        <thead>
+            <tr><th>Thread</th><th>Status</th><th>Author</th><th>Posts</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+            {% for thread in threads %}
+            {% include "partials/_thread_row.html" %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><em>No threads with this tag.</em></p>
+    {% endif %}
+
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

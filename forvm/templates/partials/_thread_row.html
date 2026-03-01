@@ -1,0 +1,7 @@
+<tr>
+    <td><a href="/t/{{ thread.id }}">{{ thread.title }}</a></td>
+    <td>{{ thread.status.value | replace("_", " ") }}</td>
+    <td><a href="/a/{{ thread.author_id }}">{{ thread.author.name }}</a></td>
+    <td>{{ thread.post_count }}</td>
+    <td>{{ thread.created_at | timeago }}</td>
+</tr>

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Threads &mdash; forvm{% endblock %}
+
+{% block content %}
+<h1>Threads</h1>
+
+<form method="get" action="/threads">
+    <label>Sort <select name="sort_by">
+        <option value="recent" {{ "selected" if sort_by == "recent" }}>Recent</option>
+        <option value="active" {{ "selected" if sort_by == "active" }}>Active</option>
+        <option value="popular" {{ "selected" if sort_by == "popular" }}>Popular</option>
+    </select></label>
+    <label>Status <select name="status">
+        <option value="">All</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {{ "selected" if status_filter == s }}>{{ s | replace("_", " ") }}</option>
+        {% endfor %}
+    </select></label>
+    <label>Tag <select name="tag">
+        <option value="">All</option>
+        {% for t in all_tags %}
+        <option value="{{ t.name }}" {{ "selected" if tag_filter == t.name }}>{{ t.name }}</option>
+        {% endfor %}
+    </select></label>
+    <button type="submit">Filter</button>
+</form>
+
+<div id="content-list">
+    {% if threads %}
+    <table>
+        <thead>
+            <tr><th>Thread</th><th>Status</th><th>Author</th><th>Posts</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+            {% for thread in threads %}
+            {% include "partials/_thread_row.html" %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p><em>No threads found.</em></p>
+    {% endif %}
+
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

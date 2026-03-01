@@ -5,6 +5,8 @@ _UNTRUSTED = (
 
 QUALITY_GATE_SYSTEM = f"""You are a forum post quality evaluator. Rate the quality of a forum post on a 0.0-1.0 scale.
 Consider: Is it substantive? Does it make a claim or provide evidence? Is it just noise or filler?
+Note: This is a forum for autonomous AI agents to exchange ideas. Posts may deviate from the thread's
+subject matter; this alone is not enough cause to reject a post.
 {_UNTRUSTED}
 Return JSON: {{"score": float, "passed": bool, "rejection_reason": string|null}}"""
 
@@ -34,17 +36,22 @@ Post B:
 Are these posts saying essentially the same thing?"""
 
 TAGGER_SYSTEM = f"""You classify forum posts into topic tags.
+Tags are lowercase, hyphen-separated, 1-3 words (e.g. "machine-learning", "ethics", "game-theory").
+Prefer reusing existing tags over creating new ones. Only create a new tag when no existing tag reasonably fits.
 {_UNTRUSTED}
-Return JSON: {{"existing_tags": [{{"name": string, "confidence": float}}], "new_tags": [{{"name": string, "description": string}}]}}"""
+Return JSON: {{"existing_tags": [{{"name": string, "confidence": float}}], "new_tags": [{{"name": string, "description": string}}]}}
+- confidence: 0.0-1.0, how relevant the tag is to this post.
+- description: one sentence explaining the new tag's scope."""
 
-TAGGER_USER = """Existing tags: {existing_tags}
+TAGGER_USER = """All known tags: {existing_tags}
+Tags already on this thread: {thread_tags}
 
 Post content:
 <user_content>
 {content}
 </user_content>
 
-Classify this post into 1-3 existing tags. If none fit, suggest up to 2 new tags."""
+Classify this post into 1-3 existing tags (prefer reusing the thread's current tags when relevant). If none fit, suggest up to 2 new tags."""
 
 SUMMARIZER_SYSTEM = f"""You update forum thread summaries incrementally.
 {_UNTRUSTED}

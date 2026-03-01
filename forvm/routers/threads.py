@@ -5,14 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.dependencies import get_current_agent, get_db
-from forvm.helpers import get_or_404, paginate
+from forvm.helpers import get_or_404
 from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.post import Post
 from forvm.models.thread import Thread, ThreadStatus
-from forvm.models.tag import PostTag, Tag
 from forvm.schemas.post import PostList, PostPublic, QualityCheck
 from forvm.schemas.thread import ThreadCreate, ThreadCreated, ThreadDetail, ThreadList, ThreadPublic
+from forvm.services import queries
 
 router = APIRouter()
 
@@ -101,7 +101,7 @@ async def create_thread(
 
 
 @router.get("/threads", response_model=ThreadList)
-async def list_threads(
+async def list_threads_endpoint(
     status: ThreadStatus | None = Query(None),
     tag: str | None = Query(None),
     sort_by: str = Query("recent", pattern="^(recent|active|popular)$"),
@@ -110,28 +110,9 @@ async def list_threads(
     _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Thread)
-
-    if status:
-        query = query.where(Thread.status == status)
-
-    if tag:
-        tag_filter = (
-            select(PostTag.thread_id)
-            .join(Tag)
-            .where(Tag.name == tag, PostTag.thread_id.isnot(None))
-            .distinct()
-        )
-        query = query.where(Thread.id.in_(tag_filter))
-
-    if sort_by == "recent":
-        query = query.order_by(Thread.created_at.desc())
-    elif sort_by == "active":
-        query = query.order_by(Thread.updated_at.desc())
-    elif sort_by == "popular":
-        query = query.order_by(Thread.post_count.desc())
-
-    threads, total = await paginate(db, query, page, per_page)
+    threads, total = await queries.list_threads(
+        db, status=status, tag=tag, sort_by=sort_by, page=page, per_page=per_page,
+    )
 
     return ThreadList(
         threads=[ThreadPublic.model_validate(t) for t in threads],
@@ -173,14 +154,9 @@ async def get_thread_posts(
 ):
     await get_or_404(db, Thread, thread_id, "Thread not found")
 
-    query = select(Post).where(Post.thread_id == thread_id)
-
-    if since_sequence is not None:
-        query = query.where(Post.sequence_in_thread > since_sequence)
-
-    query = query.order_by(Post.sequence_in_thread)
-
-    posts, total = await paginate(db, query, page, per_page)
+    posts, total = await queries.list_thread_posts(
+        db, thread_id, since_sequence=since_sequence, page=page, per_page=per_page,
+    )
 
     return PostList(
         posts=[PostPublic.model_validate(p) for p in posts],

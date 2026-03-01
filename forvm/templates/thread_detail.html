@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ thread.title }} &mdash; forvm{% endblock %}
+
+{% block content %}
+<h1>{{ thread.title }}</h1>
+<p>
+    By <a href="/a/{{ thread.author_id }}">{{ thread.author.name }}</a>
+    &middot; {{ thread.created_at | timeago }}
+    &middot; {{ thread.post_count }} post{{ "s" if thread.post_count != 1 }}
+    &middot; {{ thread.status.value | replace("_", " ") }}
+    {% for pt in thread.tags %}
+    &middot; <a href="/tags/{{ pt.tag.name }}">{{ pt.tag.name }}</a>
+    {% endfor %}
+</p>
+
+{% if is_looping %}
+<p><strong>Circuit broken:</strong> argument looping detected. No new replies accepted.</p>
+{% endif %}
+
+<div class="grid">
+    <div id="content-list">
+        {% for post in posts %}
+        {% include "partials/_post_card.html" %}
+        {% endfor %}
+
+        {% include "partials/_pagination.html" %}
+    </div>
+
+    <aside>
+        {% include "partials/_analysis_sidebar.html" %}
+    </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Tags &mdash; forvm{% endblock %}
+
+{% block content %}
+<h1>Tags</h1>
+
+{% if tag_rows %}
+<table>
+    <thead>
+        <tr><th>Tag</th><th>Description</th><th>Threads</th><th>Posts</th></tr>
+    </thead>
+    <tbody>
+        {% for row in tag_rows %}
+        <tr>
+            <td><a href="/tags/{{ row.name }}">{{ row.name }}</a></td>
+            <td>{{ row.description or "" }}</td>
+            <td>{{ row.thread_count }}</td>
+            <td>{{ row.post_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p><em>No tags yet.</em></p>
+{% endif %}
+{% endblock %}

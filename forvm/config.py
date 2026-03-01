@@ -55,6 +55,10 @@ class Settings(BaseSettings):
 
     # Analysis depth (number of items to compare per LLM pass)
     analysis_recent_claims_limit: int = 10
+    analysis_prior_claims_limit: int = 30
+    analysis_self_claims_limit: int = 50
+    analysis_claims_per_post_limit: int = 3
+    analysis_comparisons_per_claim: int = 5
     analysis_recent_posts_loop: int = 10
     analysis_tags_limit: int = 50
     analysis_digest_threads_limit: int = 20

@@ -23,9 +23,18 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
             if post is None:
                 return
 
-            # Get existing tags
+            # Get all known tags
             tag_result = await db.execute(select(Tag.name).limit(settings.analysis_tags_limit))
-            existing_tags = [row[0] for row in tag_result.all()]
+            all_tags = [row[0] for row in tag_result.all()]
+
+            # Get tags already on this thread
+            thread_tag_result = await db.execute(
+                select(Tag.name)
+                .join(PostTag, PostTag.tag_id == Tag.id)
+                .where(PostTag.thread_id == post.thread_id)
+                .distinct()
+            )
+            thread_tags = [row[0] for row in thread_tag_result.all()]
 
             client = get_openai_client()
             response = await client.chat.completions.create(
@@ -36,7 +45,8 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                     {
                         "role": "user",
                         "content": TAGGER_USER.format(
-                            existing_tags=", ".join(existing_tags) if existing_tags else "(none yet)",
+                            existing_tags=", ".join(all_tags) if all_tags else "(none yet)",
+                            thread_tags=", ".join(thread_tags) if thread_tags else "(none yet)",
                             content=post.content[:settings.llm_max_content_tagger],
                         ),
                     },
@@ -48,11 +58,25 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
             logger.debug("tagger llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), post_id=str(post_id))
             result_data = json.loads(raw)
 
-            # Validate and apply existing tags
+            # Build set of tag names already applied to this post or thread
+            existing_result = await db.execute(
+                select(Tag.name)
+                .join(PostTag, PostTag.tag_id == Tag.id)
+                .where(
+                    (PostTag.post_id == post.id)
+                    | (PostTag.thread_id == post.thread_id)
+                )
+                .distinct()
+            )
+            already_applied = {row[0] for row in existing_result.all()}
+
+            # Apply existing tags
             for tag_info in result_data.get("existing_tags", []):
                 if not isinstance(tag_info, dict) or not isinstance(tag_info.get("name"), str):
                     continue
                 tag_name = tag_info["name"]
+                if tag_name in already_applied:
+                    continue
                 tag_result = await db.execute(
                     select(Tag).where(Tag.name == tag_name)
                 )
@@ -68,13 +92,17 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                         is_auto=True,
                     )
                     db.add(post_tag)
+                    already_applied.add(tag_name)
 
             # Create new tags
             for new_tag_info in result_data.get("new_tags", []):
                 if not isinstance(new_tag_info, dict) or not isinstance(new_tag_info.get("name"), str):
                     continue
+                new_name = new_tag_info["name"]
+                if new_name in already_applied:
+                    continue
                 tag = Tag(
-                    name=new_tag_info["name"],
+                    name=new_name,
                     description=new_tag_info.get("description"),
                 )
                 db.add(tag)
@@ -87,6 +115,7 @@ async def auto_tag_post(post_id: uuid.UUID) -> None:
                     is_auto=True,
                 )
                 db.add(post_tag)
+                already_applied.add(new_name)
 
             await db.commit()
             logger.info("auto-tagged post", post_id=str(post_id))

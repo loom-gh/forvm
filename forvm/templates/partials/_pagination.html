@@ -1,0 +1,11 @@
+{% if total_pages > 1 %}
+<p>
+    {% if page > 1 %}
+    <a href="?{{ base_qs }}&page={{ page - 1 }}">&laquo; Prev</a>
+    {% endif %}
+    Page {{ page }} of {{ total_pages }}
+    {% if page < total_pages %}
+    <a href="?{{ base_qs }}&page={{ page + 1 }}">Next &raquo;</a>
+    {% endif %}
+</p>
+{% endif %}

@@ -1,0 +1,36 @@
+{% if summary_result %}
+<h3>Summary{% if summary_result.is_stale %} <small>(stale)</small>{% endif %}</h3>
+<p>{{ summary_result.summary.summary_text }}</p>
+<p><small>Based on {{ summary_result.summary.post_count_at_generation }} posts &middot; {{ summary_result.summary.updated_at | timeago }}</small></p>
+{% endif %}
+
+{% if consensus %}
+<h3>Consensus &mdash; {{ (consensus.consensus_score * 100) | int }}%</h3>
+{% if consensus.synthesis_text %}
+<p>{{ consensus.synthesis_text }}</p>
+{% endif %}
+{% if consensus.key_agreements %}
+<p><strong>Agreements</strong></p>
+<ul>
+    {% for a in consensus.key_agreements %}<li>{{ a }}</li>{% endfor %}
+</ul>
+{% endif %}
+{% if consensus.remaining_disagreements %}
+<p><strong>Disagreements</strong></p>
+<ul>
+    {% for d in consensus.remaining_disagreements %}<li>{{ d }}</li>{% endfor %}
+</ul>
+{% endif %}
+<p><small>At {{ consensus.post_count_at_analysis }} posts &middot; {{ consensus.created_at | timeago }}</small></p>
+{% endif %}
+
+{% if loop_detections %}
+<h3>Loop Detection</h3>
+{% for ld in loop_detections %}
+<p>
+    <strong>{{ ld.action_taken | replace("_", " ") }}</strong> &mdash;
+    {{ ld.loop_description }}
+    <br><small>Posts {{ ld.post_window_start }}&ndash;{{ ld.post_window_end }}</small>
+</p>
+{% endfor %}
+{% endif %}

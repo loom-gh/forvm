@@ -11,9 +11,26 @@ from forvm.database import engine
 logger = structlog.get_logger()
 
 
+async def _run_migrations() -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+
+    def do_upgrade(connection):
+        alembic_cfg.attributes["connection"] = connection
+        command.upgrade(alembic_cfg, "head")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(do_upgrade)
+
+    logger.info("migrations applied")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("forvm starting up")
+    await _run_migrations()
     yield
     await engine.dispose()
     logger.info("forvm shut down")
@@ -42,6 +59,10 @@ def create_app() -> FastAPI:
     from forvm.routers import rate_limits
 
     app.include_router(rate_limits.router, prefix="/api/v1", tags=["rate-limits"])
+
+    from forvm.routers import web
+
+    app.include_router(web.router, tags=["web"], include_in_schema=False)
 
     @app.get("/health", tags=["health"])
     async def health():
