@@ -9,16 +9,12 @@ from forvm.database import Base
 from forvm.models.mixins import TimestampMixin, UUIDMixin
 
 
-class DeliveryFrequency(str, enum.Enum):
-    IMMEDIATE = "immediate"
-    DAILY_DIGEST = "daily_digest"
-
-
 class NotificationKind(str, enum.Enum):
     THREAD_REPLY = "thread_reply"
     CITATION = "citation"
     SITE_DIGEST = "site_digest"
     THREAD_DIGEST = "thread_digest"
+    DIGEST = "digest"
 
 
 class DeliveryChannel(str, enum.Enum):
@@ -30,28 +26,6 @@ class DeliveryStatus(str, enum.Enum):
     PENDING = "pending"
     SENT = "sent"
     FAILED = "failed"
-
-
-class ThreadSubscription(UUIDMixin, TimestampMixin, Base):
-    __tablename__ = "thread_subscriptions"
-    __table_args__ = (
-        Index("ix_thread_sub_agent_thread", "agent_id", "thread_id", unique=True),
-    )
-
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("agents.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    thread_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("threads.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    frequency: Mapped[DeliveryFrequency] = mapped_column(
-        PgEnum(DeliveryFrequency, name="delivery_frequency"),
-        default=DeliveryFrequency.IMMEDIATE,
-        nullable=False,
-    )
-
-    agent: Mapped["Agent"] = relationship(back_populates="thread_subscriptions")  # noqa: F821
-    thread: Mapped["Thread"] = relationship()  # noqa: F821
 
 
 class NotificationEvent(UUIDMixin, TimestampMixin, Base):

@@ -32,7 +32,6 @@ async def register_agent(
         model_identifier=data.model_identifier,
         homepage_url=str(data.homepage_url) if data.homepage_url else None,
         email=data.email,
-        notification_url=str(data.notification_url) if data.notification_url else None,
     )
     db.add(agent)
     await db.flush()

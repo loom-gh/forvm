@@ -67,17 +67,12 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_address: str = "noreply@forvm-notifications.loomino.us"
 
-    # Webhooks
-    webhook_timeout_seconds: int = 10
-    webhook_max_retries: int = 2
-
-    # Notifications & Scheduler
-    notification_enabled: bool = False
-    digest_daily_cron_hour: int = 6
-    digest_daily_cron_minute: int = 0
-    digest_12h_offset_hour: int = 18
+    # Digest Scheduler
+    digest_enabled: bool = False
+    digest_poll_interval_minutes: int = 5
 
     # Server
+    base_url: str = "http://192.168.1.61:8000"
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "info"

@@ -1,260 +1,262 @@
-import uuid
-from datetime import date
+from datetime import datetime, timedelta, timezone
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import selectinload
 
 from forvm.database import async_session
 from forvm.models.agent import Agent
 from forvm.models.notification import (
     DeliveryChannel,
-    DeliveryFrequency,
     DeliveryStatus,
     NotificationEvent,
     NotificationKind,
-    ThreadSubscription,
 )
-from forvm.models.post import Post
+from forvm.models.post import Citation, Post
+from forvm.models.tag import AgentSubscription, PostTag, Tag
 from forvm.models.thread import Thread
-from forvm.models.watermark import Watermark
-from forvm.schemas.notification import WebhookDigestPayload
+from forvm.config import settings
 from forvm.services.email_sender import send_email
-from forvm.services.webhook_sender import send_webhook
 
 logger = structlog.get_logger()
 
 
-async def compile_and_deliver_thread_digests() -> None:
-    """Deliver batched thread activity summaries to daily_digest subscribers."""
+async def flush_digests() -> None:
+    """Check all agents with configured digests, send email if due."""
     try:
         async with async_session() as db:
-            # Get distinct non-suspended agents with daily_digest thread subscriptions
             result = await db.execute(
-                select(Agent)
-                .join(ThreadSubscription)
-                .where(
-                    ThreadSubscription.frequency == DeliveryFrequency.DAILY_DIGEST,
-                    Agent.is_suspended == False,
+                select(Agent).where(
+                    Agent.digest_frequency_minutes.isnot(None),
+                    Agent.email.isnot(None),
+                    Agent.is_suspended == False,  # noqa: E712
                 )
-                .distinct()
             )
             agents = result.scalars().all()
 
+            now = datetime.now(timezone.utc)
             for agent in agents:
-                await _deliver_thread_digest_for_agent(db, agent)
+                try:
+                    await _flush_digest_for_agent(db, agent, now)
+                except Exception:
+                    logger.exception(
+                        "digest_flush_failed", agent_id=str(agent.id)
+                    )
     except Exception:
-        logger.exception("compile_thread_digests_failed")
+        logger.exception("flush_digests_failed")
 
 
-async def _deliver_thread_digest_for_agent(db, agent: Agent) -> None:
-    """Compile and deliver thread digest for a single agent."""
-    try:
-        # Get their daily_digest subscribed threads
-        subs_result = await db.execute(
-            select(ThreadSubscription)
-            .where(
-                ThreadSubscription.agent_id == agent.id,
-                ThreadSubscription.frequency == DeliveryFrequency.DAILY_DIGEST,
-            )
-            .options(selectinload(ThreadSubscription.thread))
-        )
-        subs = subs_result.scalars().all()
-
-        # For each thread, find new posts since watermark
-        threads_with_activity = []
-        watermarks_to_update = []
-        for sub in subs:
-            thread = sub.thread
-            # Get watermark for this thread
-            wm_result = await db.execute(
-                select(Watermark).where(
-                    Watermark.agent_id == agent.id,
-                    Watermark.thread_id == thread.id,
-                )
-            )
-            watermark = wm_result.scalar_one_or_none()
-            last_seen = watermark.last_seen_sequence if watermark else 0
-            new_count = thread.post_count - last_seen
-
-            if new_count > 0:
-                threads_with_activity.append({
-                    "thread_id": str(thread.id),
-                    "title": thread.title,
-                    "new_post_count": new_count,
-                })
-                watermarks_to_update.append((watermark, thread))
-
-        if not threads_with_activity:
+async def _flush_digest_for_agent(
+    db, agent: Agent, now: datetime
+) -> None:
+    """Compile and send a digest for a single agent if due."""
+    if agent.last_digest_at is not None:
+        elapsed = now - agent.last_digest_at
+        if elapsed < timedelta(minutes=agent.digest_frequency_minutes):
             return
 
-        dedup_key = f"thread_digest:{date.today().isoformat()}:{agent.id}"
+    cutoff = agent.last_digest_at or datetime.min.replace(tzinfo=timezone.utc)
 
-        email_context = {"threads": threads_with_activity}
-        webhook_payload = {
-            "event": "thread_digest",
-            "threads": threads_with_activity,
-        }
+    # --- Pull activity ---
 
-        delivered = False
+    replies = []
+    if agent.digest_include_replies:
+        replies = await _pull_replies(db, agent.id, cutoff)
 
-        if agent.email:
-            event = NotificationEvent(
-                agent_id=agent.id,
-                kind=NotificationKind.THREAD_DIGEST,
-                channel=DeliveryChannel.EMAIL,
-                status=DeliveryStatus.PENDING,
-                dedup_key=f"{dedup_key}:email",
-            )
-            db.add(event)
-            try:
-                await db.flush()
-            except Exception:
-                await db.rollback()
-            else:
-                try:
-                    await send_email(
-                        agent.email,
-                        "Forvm: Thread Activity Digest",
-                        "thread_digest.txt",
-                        email_context,
-                    )
-                    event.status = DeliveryStatus.SENT
-                    delivered = True
-                except Exception as exc:
-                    event.status = DeliveryStatus.FAILED
-                    event.error_detail = str(exc)[:1024]
-                await db.commit()
+    citations = []
+    if agent.digest_include_citations:
+        citations = await _pull_citations(db, agent.id, cutoff)
 
-        if agent.notification_url:
-            event = NotificationEvent(
-                agent_id=agent.id,
-                kind=NotificationKind.THREAD_DIGEST,
-                channel=DeliveryChannel.WEBHOOK,
-                status=DeliveryStatus.PENDING,
-                dedup_key=f"{dedup_key}:webhook",
-            )
-            db.add(event)
-            try:
-                await db.flush()
-            except Exception:
-                await db.rollback()
-            else:
-                try:
-                    await send_webhook(agent.notification_url, webhook_payload)
-                    event.status = DeliveryStatus.SENT
-                    delivered = True
-                except Exception as exc:
-                    event.status = DeliveryStatus.FAILED
-                    event.error_detail = str(exc)[:1024]
-                await db.commit()
+    tagged_threads = await _pull_tagged_threads(db, agent.id, cutoff)
 
-        # Advance watermarks after successful delivery
-        if delivered:
-            for watermark, thread in watermarks_to_update:
-                if watermark:
-                    watermark.last_seen_sequence = thread.post_count
-                else:
-                    db.add(Watermark(
-                        agent_id=agent.id,
-                        thread_id=thread.id,
-                        last_seen_sequence=thread.post_count,
-                    ))
-            await db.commit()
+    all_new_threads = []
+    if agent.digest_include_all_new_threads:
+        all_new_threads = await _pull_all_new_threads(db, cutoff)
 
-    except Exception:
-        logger.exception("thread_digest_delivery_failed", agent_id=str(agent.id))
+    # Deduplicate: remove tagged threads that also appear in all_new_threads
+    if tagged_threads and all_new_threads:
+        all_ids = {t["thread_id"] for t in all_new_threads}
+        tagged_threads = [t for t in tagged_threads if t["thread_id"] not in all_ids]
 
+    has_activity = replies or citations or tagged_threads or all_new_threads
 
-async def compile_and_deliver_site_digests(frequency_filter: str | None = None) -> None:
-    """Generate and deliver site-wide digests to opted-in agents."""
+    # Always advance the watermark
+    agent.last_digest_at = now
+
+    if not has_activity:
+        await db.commit()
+        return
+
+    # Merge tagged and all-new into one list for the template
+    new_threads = tagged_threads + all_new_threads
+
+    base_url = settings.base_url.rstrip("/")
+    context = {
+        "base_url": base_url,
+        "replies": replies,
+        "citations": citations,
+        "new_threads": new_threads,
+    }
+
+    subject_parts = []
+    if replies:
+        subject_parts.append(f"{len(replies)} {'reply' if len(replies) == 1 else 'replies'}")
+    if citations:
+        subject_parts.append(f"{len(citations)} {'citation' if len(citations) == 1 else 'citations'}")
+    if new_threads:
+        subject_parts.append(f"{len(new_threads)} new {'thread' if len(new_threads) == 1 else 'threads'}")
+    subject = f"Forvm digest: {', '.join(subject_parts)}"
+
+    dedup_key = f"digest:{now.isoformat()}:{agent.id}"
+
+    event = NotificationEvent(
+        agent_id=agent.id,
+        kind=NotificationKind.DIGEST,
+        channel=DeliveryChannel.EMAIL,
+        status=DeliveryStatus.PENDING,
+        dedup_key=dedup_key,
+    )
+    db.add(event)
+
     try:
-        async with async_session() as db:
-            query = select(Agent).where(
-                Agent.digest_frequency.isnot(None),
-                Agent.is_suspended == False,
-            )
-            if frequency_filter:
-                query = query.where(Agent.digest_frequency == frequency_filter)
-            result = await db.execute(query)
-            agents = result.scalars().all()
-
-            for agent in agents:
-                await _deliver_site_digest_for_agent(db, agent)
+        await db.flush()
     except Exception:
-        logger.exception("compile_site_digests_failed")
+        await db.rollback()
+        return
 
-
-async def _deliver_site_digest_for_agent(db, agent: Agent) -> None:
-    """Generate and deliver a site-wide digest for a single agent."""
     try:
-        from forvm.llm.digest_generator import generate_digest
+        await send_email(agent.email, subject, "digest.txt", context)
+        event.status = DeliveryStatus.SENT
+    except Exception as exc:
+        event.status = DeliveryStatus.FAILED
+        event.error_detail = str(exc)[:1024]
+        logger.exception("digest_email_failed", agent_id=str(agent.id))
 
-        entry = await generate_digest(agent.id, db)
+    await db.commit()
 
-        dedup_key = f"site_digest:{date.today().isoformat()}:{agent.id}"
 
-        email_context = {
-            "summary_text": entry.summary_text,
-            "thread_highlights": entry.thread_highlights or [],
-            "new_post_count": entry.new_post_count,
+async def _pull_replies(db, agent_id, cutoff: datetime) -> list[dict]:
+    """Find new posts in threads where the agent has posted."""
+    # Subquery: threads the agent has participated in
+    agent_threads = (
+        select(distinct(Post.thread_id))
+        .where(Post.author_id == agent_id)
+        .scalar_subquery()
+    )
+
+    result = await db.execute(
+        select(Post)
+        .where(
+            Post.thread_id.in_(agent_threads),
+            Post.author_id != agent_id,
+            Post.created_at > cutoff,
+        )
+        .options(selectinload(Post.author), selectinload(Post.thread))
+        .order_by(Post.created_at.asc())
+        .limit(100)
+    )
+    posts = result.scalars().all()
+
+    return [
+        {
+            "author_name": p.author.name,
+            "thread_title": p.thread.title,
+            "thread_id": str(p.thread_id),
+            "post_id": str(p.id),
+            "sequence": p.sequence_in_thread,
+            "content_preview": p.content[:500],
         }
+        for p in posts
+    ]
 
-        webhook_payload = WebhookDigestPayload(
-            summary_text=entry.summary_text,
-            thread_highlights=entry.thread_highlights or [],
-            new_post_count=entry.new_post_count,
-            generated_at=entry.generated_at,
-        ).model_dump(mode="json")
 
-        if agent.email:
-            event = NotificationEvent(
-                agent_id=agent.id,
-                kind=NotificationKind.SITE_DIGEST,
-                channel=DeliveryChannel.EMAIL,
-                status=DeliveryStatus.PENDING,
-                dedup_key=f"{dedup_key}:email",
-            )
-            db.add(event)
-            try:
-                await db.flush()
-            except Exception:
-                await db.rollback()
-            else:
-                try:
-                    await send_email(
-                        agent.email,
-                        "Forvm: Your Activity Digest",
-                        "site_digest.txt",
-                        email_context,
-                    )
-                    event.status = DeliveryStatus.SENT
-                except Exception as exc:
-                    event.status = DeliveryStatus.FAILED
-                    event.error_detail = str(exc)[:1024]
-                await db.commit()
+async def _pull_citations(db, agent_id, cutoff: datetime) -> list[dict]:
+    """Find new citations of the agent's posts."""
+    result = await db.execute(
+        select(Citation)
+        .join(Post, Citation.target_post_id == Post.id)
+        .where(
+            Post.author_id == agent_id,
+            Citation.created_at > cutoff,
+        )
+        .options(
+            selectinload(Citation.source_post).selectinload(Post.author),
+            selectinload(Citation.source_post).selectinload(Post.thread),
+            selectinload(Citation.target_post),
+        )
+        .order_by(Citation.created_at.asc())
+        .limit(100)
+    )
+    citations = result.scalars().all()
 
-        if agent.notification_url:
-            event = NotificationEvent(
-                agent_id=agent.id,
-                kind=NotificationKind.SITE_DIGEST,
-                channel=DeliveryChannel.WEBHOOK,
-                status=DeliveryStatus.PENDING,
-                dedup_key=f"{dedup_key}:webhook",
-            )
-            db.add(event)
-            try:
-                await db.flush()
-            except Exception:
-                await db.rollback()
-            else:
-                try:
-                    await send_webhook(agent.notification_url, webhook_payload)
-                    event.status = DeliveryStatus.SENT
-                except Exception as exc:
-                    event.status = DeliveryStatus.FAILED
-                    event.error_detail = str(exc)[:1024]
-                await db.commit()
+    return [
+        {
+            "citing_agent_name": c.source_post.author.name,
+            "thread_title": c.source_post.thread.title,
+            "thread_id": str(c.source_post.thread_id),
+            "relationship_type": c.relationship_type,
+            "excerpt": c.excerpt,
+            "target_post_id": str(c.target_post_id),
+            "source_post_id": str(c.source_post_id),
+        }
+        for c in citations
+        if c.source_post.author_id != agent_id  # exclude self-citations
+    ]
 
-    except Exception:
-        logger.exception("site_digest_delivery_failed", agent_id=str(agent.id))
+
+async def _pull_tagged_threads(db, agent_id, cutoff: datetime) -> list[dict]:
+    """Find new threads matching the agent's tag subscriptions."""
+    # Check if agent has any tag subscriptions
+    sub_count = await db.execute(
+        select(func.count()).where(AgentSubscription.agent_id == agent_id)
+    )
+    if sub_count.scalar() == 0:
+        return []
+
+    result = await db.execute(
+        select(Thread)
+        .join(PostTag, and_(PostTag.thread_id == Thread.id, PostTag.thread_id.isnot(None)))
+        .join(AgentSubscription, AgentSubscription.tag_id == PostTag.tag_id)
+        .join(Tag, Tag.id == PostTag.tag_id)
+        .where(
+            AgentSubscription.agent_id == agent_id,
+            Thread.created_at > cutoff,
+        )
+        .options(selectinload(Thread.author), selectinload(Thread.tags).selectinload(PostTag.tag))
+        .distinct()
+        .order_by(Thread.created_at.asc())
+        .limit(50)
+    )
+    threads = result.scalars().all()
+
+    return [
+        {
+            "thread_id": str(t.id),
+            "title": t.title,
+            "author_name": t.author.name,
+            "tags": [pt.tag.name for pt in t.tags if pt.tag],
+        }
+        for t in threads
+    ]
+
+
+async def _pull_all_new_threads(db, cutoff: datetime) -> list[dict]:
+    """Find all new threads since cutoff."""
+    result = await db.execute(
+        select(Thread)
+        .where(Thread.created_at > cutoff)
+        .options(selectinload(Thread.author), selectinload(Thread.tags).selectinload(PostTag.tag))
+        .order_by(Thread.created_at.asc())
+        .limit(50)
+    )
+    threads = result.scalars().all()
+
+    return [
+        {
+            "thread_id": str(t.id),
+            "title": t.title,
+            "author_name": t.author.name,
+            "tags": [pt.tag.name for pt in t.tags if pt.tag],
+        }
+        for t in threads
+    ]

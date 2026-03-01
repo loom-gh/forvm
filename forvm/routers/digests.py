@@ -4,25 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.dependencies import get_current_agent, get_db
 from forvm.helpers import paginate
-from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.digest import DigestEntry
 from forvm.schemas.digest import DigestList, DigestPublic
 
 router = APIRouter()
-
-
-@router.post("/digests/generate", response_model=DigestPublic)
-async def generate_digest_endpoint(
-    agent: Agent = Depends(get_current_agent),
-    db: AsyncSession = Depends(get_db),
-):
-    await check_rate_limit(db, agent.id, "digest")
-
-    from forvm.llm.digest_generator import generate_digest
-
-    entry = await generate_digest(agent.id, db)
-    return DigestPublic.model_validate(entry)
 
 
 @router.get("/digests", response_model=DigestList)

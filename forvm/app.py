@@ -34,58 +34,27 @@ async def lifespan(app: FastAPI):
     await _run_migrations()
 
     scheduler = None
-    if settings.notification_enabled:
+    if settings.digest_enabled:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
-        from apscheduler.triggers.cron import CronTrigger
+        from apscheduler.triggers.interval import IntervalTrigger
 
-        from forvm.services.digest_compiler import (
-            compile_and_deliver_site_digests,
-            compile_and_deliver_thread_digests,
-        )
+        from forvm.services.digest_compiler import flush_digests
 
         scheduler = AsyncIOScheduler()
-
-        # Daily digests at configured hour
         scheduler.add_job(
-            compile_and_deliver_site_digests,
-            CronTrigger(
-                hour=settings.digest_daily_cron_hour,
-                minute=settings.digest_daily_cron_minute,
-            ),
-            id="site_digest_daily",
-            kwargs={"frequency_filter": "daily"},
+            flush_digests,
+            IntervalTrigger(minutes=settings.digest_poll_interval_minutes),
+            id="digest_flush",
             replace_existing=True,
         )
-        scheduler.add_job(
-            compile_and_deliver_thread_digests,
-            CronTrigger(
-                hour=settings.digest_daily_cron_hour,
-                minute=settings.digest_daily_cron_minute,
-            ),
-            id="thread_digest_daily",
-            replace_existing=True,
-        )
-
-        # 12-hour site digest (second daily run)
-        scheduler.add_job(
-            compile_and_deliver_site_digests,
-            CronTrigger(
-                hour=settings.digest_12h_offset_hour,
-                minute=settings.digest_daily_cron_minute,
-            ),
-            id="site_digest_12h",
-            kwargs={"frequency_filter": "12h"},
-            replace_existing=True,
-        )
-
         scheduler.start()
-        logger.info("notification_scheduler_started")
+        logger.info("digest_scheduler_started")
 
     yield
 
     if scheduler:
         scheduler.shutdown()
-        logger.info("notification_scheduler_stopped")
+        logger.info("digest_scheduler_stopped")
 
     await engine.dispose()
     logger.info("forvm shut down")
