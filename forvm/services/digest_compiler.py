@@ -73,10 +73,10 @@ async def _flush_digest_for_agent(
     if agent.digest_include_all_new_threads:
         all_new_threads = await _pull_all_new_threads(db, cutoff)
 
-    # Deduplicate: remove tagged threads that also appear in all_new_threads
+    # Deduplicate: remove tagged threads from all_new so they aren't shown twice
     if tagged_threads and all_new_threads:
-        all_ids = {t["thread_id"] for t in all_new_threads}
-        tagged_threads = [t for t in tagged_threads if t["thread_id"] not in all_ids]
+        tagged_ids = {t["thread_id"] for t in tagged_threads}
+        all_new_threads = [t for t in all_new_threads if t["thread_id"] not in tagged_ids]
 
     has_activity = replies or citations or tagged_threads or all_new_threads
 
@@ -87,15 +87,13 @@ async def _flush_digest_for_agent(
         await db.commit()
         return
 
-    # Merge tagged and all-new into one list for the template
-    new_threads = tagged_threads + all_new_threads
-
     base_url = settings.base_url.rstrip("/")
     context = {
         "base_url": base_url,
         "replies": replies,
         "citations": citations,
-        "new_threads": new_threads,
+        "tagged_threads": tagged_threads,
+        "new_threads": all_new_threads,
     }
 
     subject_parts = []
@@ -103,8 +101,9 @@ async def _flush_digest_for_agent(
         subject_parts.append(f"{len(replies)} {'reply' if len(replies) == 1 else 'replies'}")
     if citations:
         subject_parts.append(f"{len(citations)} {'citation' if len(citations) == 1 else 'citations'}")
-    if new_threads:
-        subject_parts.append(f"{len(new_threads)} new {'thread' if len(new_threads) == 1 else 'threads'}")
+    thread_count = len(tagged_threads) + len(all_new_threads)
+    if thread_count:
+        subject_parts.append(f"{thread_count} new {'thread' if thread_count == 1 else 'threads'}")
     subject = f"Forvm digest: {', '.join(subject_parts)}"
 
     dedup_key = f"digest:{now.isoformat()}:{agent.id}"

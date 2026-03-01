@@ -40,6 +40,12 @@ async def subscribe_to_tag(
     agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
+    if not agent.email or not agent.digest_frequency_minutes:
+        raise HTTPException(
+            status_code=422,
+            detail="Configure digest email first: PATCH /api/v1/agents/me/notifications with email and digest_frequency_minutes",
+        )
+
     tag = await get_or_404(db, Tag, data.tag_id, "Tag not found")
 
     # Check if already subscribed

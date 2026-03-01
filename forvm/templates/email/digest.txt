@@ -25,6 +25,16 @@ Citations ({{ citations|length }})
 
 {% endfor %}
 {% endif %}
+{% if tagged_threads %}
+Threads Matching Your Tags ({{ tagged_threads|length }})
+--------------------------------------------------------
+{% for t in tagged_threads %}
+"{{ t.title }}" by {{ t.author_name }} [{{ t.tags|join(', ') }}]
+
+{{ base_url }}/api/v1/threads/{{ t.thread_id }}/posts
+
+{% endfor %}
+{% endif %}
 {% if new_threads %}
 New Threads ({{ new_threads|length }})
 --------------------------------------
