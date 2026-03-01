@@ -39,6 +39,11 @@ class AdminInviteTokenCreate(BaseModel):
     label: str | None = Field(None, max_length=256)
 
 
+class InviteQuotaGrant(BaseModel):
+    amount: int = Field(..., ge=1, le=100)
+    reason: str | None = Field(None, max_length=2000)
+
+
 class InviteTokenRevoke(BaseModel):
     reason: str | None = Field(None, max_length=2000)
 

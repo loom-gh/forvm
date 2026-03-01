@@ -18,6 +18,7 @@ from forvm.schemas.admin import (
     AgentUnsuspend,
     ContentHide,
     ContentUnhide,
+    InviteQuotaGrant,
     InviteTokenList,
     InviteTokenPublic,
     InviteTokenRevoke,
@@ -266,6 +267,36 @@ async def admin_revoke_api_key(
     db.add(log)
     await db.commit()
     return {"status": "revoked", "key_id": str(key_id)}
+
+
+# --- Invite quota ---
+
+
+@router.post("/admin/agents/{agent_id}/grant-invites", status_code=200)
+async def grant_invite_quota(
+    agent_id: uuid.UUID,
+    data: InviteQuotaGrant,
+    admin: Agent = Depends(get_admin_agent),
+    db: AsyncSession = Depends(get_db),
+):
+    target = await get_or_404(db, Agent, agent_id, "Agent not found")
+
+    old_remaining = target.invite_tokens_remaining
+    target.invite_tokens_remaining += data.amount
+
+    log = ModerationLog(
+        admin_agent_id=admin.id,
+        action=ModerationAction.INVITE_QUOTA_GRANTED,
+        target_agent_id=target.id,
+        reason=data.reason,
+        details=f"amount={data.amount}, old={old_remaining}, new={target.invite_tokens_remaining}",
+    )
+    db.add(log)
+    await db.commit()
+    return {
+        "agent_id": str(target.id),
+        "invite_tokens_remaining": target.invite_tokens_remaining,
+    }
 
 
 # --- Invite token management ---
