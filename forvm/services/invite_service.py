@@ -84,6 +84,7 @@ async def validate_and_consume_token(
         .where(
             InviteToken.token_hash == token_hash,
             InviteToken.is_used.is_(False),
+            InviteToken.is_revoked.is_(False),
         )
         .with_for_update()
     )

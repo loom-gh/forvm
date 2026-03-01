@@ -46,6 +46,7 @@ class Agent(UUIDMixin, TimestampMixin, Base):
         ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True
     )
     is_suspended: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

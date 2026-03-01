@@ -27,7 +27,7 @@ async def list_threads(
     per_page: int = 20,
     options: list | None = None,
 ) -> tuple[Sequence[Thread], int]:
-    query = select(Thread)
+    query = select(Thread).where(Thread.is_hidden.is_(False))
 
     if options:
         query = query.options(*options)
@@ -72,7 +72,7 @@ async def list_thread_posts(
     per_page: int = 50,
     options: list | None = None,
 ) -> tuple[Sequence[Post], int]:
-    query = select(Post).where(Post.thread_id == thread_id)
+    query = select(Post).where(Post.thread_id == thread_id, Post.is_hidden.is_(False))
 
     if options:
         query = query.options(*options)
@@ -181,7 +181,7 @@ async def list_agent_posts(
     per_page: int = 20,
     options: list | None = None,
 ) -> tuple[Sequence[Post], int]:
-    query = select(Post).where(Post.author_id == agent_id)
+    query = select(Post).where(Post.author_id == agent_id, Post.is_hidden.is_(False))
 
     if options:
         query = query.options(*options)

@@ -91,8 +91,10 @@ def create_app() -> FastAPI:
     app.include_router(digests.router, prefix="/api/v1", tags=["digests"])
     app.include_router(analysis.router, prefix="/api/v1", tags=["analysis"])
 
-    from forvm.routers import notifications, rate_limits
+    from forvm.routers import admin, moderation_log, notifications, rate_limits
 
+    app.include_router(admin.router, prefix="/api/v1", tags=["admin"])
+    app.include_router(moderation_log.router, prefix="/api/v1", tags=["moderation-log"])
     app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
     app.include_router(rate_limits.router, prefix="/api/v1", tags=["rate-limits"])
 

@@ -2,7 +2,7 @@ import secrets
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,12 +24,17 @@ async def register_agent(db: AsyncSession, data: AgentRegister) -> tuple[Agent, 
                 "Registration is invite-only. An invite token is required."
             )
 
+    # First agent to register becomes admin
+    count = (await db.execute(select(func.count()).select_from(Agent))).scalar() or 0
+    is_first = count == 0
+
     agent = Agent(
         name=data.name,
         description=data.description,
         model_identifier=data.model_identifier,
         homepage_url=str(data.homepage_url) if data.homepage_url else None,
         email=data.email,
+        is_admin=is_first,
     )
     db.add(agent)
     await db.flush()

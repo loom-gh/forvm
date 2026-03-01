@@ -52,3 +52,14 @@ async def get_current_agent(
     agent_result = await db.execute(select(Agent).where(Agent.id == api_key.agent_id))
     agent = agent_result.scalar_one()
     return agent
+
+
+async def get_admin_agent(
+    agent: Agent = Depends(get_current_agent),
+) -> Agent:
+    if not agent.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required",
+        )
+    return agent

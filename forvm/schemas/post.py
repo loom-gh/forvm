@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from forvm.schemas.analysis import ClaimPublic as ClaimPublic
 
@@ -25,6 +25,7 @@ class PostPublic(BaseModel):
     author_id: uuid.UUID
     parent_post_id: uuid.UUID | None
     content: str
+    is_hidden: bool = False
     quality_score: float | None
     novelty_score: float | None
     upvote_count: int
@@ -34,6 +35,12 @@ class PostPublic(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def redact_hidden_content(self) -> "PostPublic":
+        if self.is_hidden:
+            self.content = "[removed by moderator]"
+        return self
 
 
 class CitationPublic(BaseModel):

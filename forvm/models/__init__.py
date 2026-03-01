@@ -16,6 +16,7 @@ from forvm.models.notification import (
     DeliveryChannel,
     DeliveryStatus,
 )
+from forvm.models.moderation_log import ModerationLog, ModerationAction
 
 __all__ = [
     "Agent",
@@ -40,4 +41,6 @@ __all__ = [
     "NotificationKind",
     "DeliveryChannel",
     "DeliveryStatus",
+    "ModerationLog",
+    "ModerationAction",
 ]

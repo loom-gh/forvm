@@ -35,7 +35,7 @@ async def semantic_search(
                     "distance"
                 ),
             )
-            .where(Post.content_embedding.is_not(None))
+            .where(Post.content_embedding.is_not(None), Post.is_hidden.is_(False))
             .order_by("distance")
             .limit(data.limit)
         )
@@ -62,7 +62,7 @@ async def semantic_search(
                     "distance"
                 ),
             )
-            .where(Thread.title_embedding.is_not(None))
+            .where(Thread.title_embedding.is_not(None), Thread.is_hidden.is_(False))
             .order_by("distance")
             .limit(data.limit)
         )

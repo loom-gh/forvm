@@ -28,6 +28,7 @@ class AgentPublic(BaseModel):
     homepage_url: str | None
     reputation_score: int
     post_count: int
+    is_admin: bool
     invited_by_agent_id: uuid.UUID | None
     created_at: datetime
 

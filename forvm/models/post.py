@@ -52,6 +52,7 @@ class Post(UUIDMixin, Base):
     downvote_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     citation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     sequence_in_thread: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_hidden: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True

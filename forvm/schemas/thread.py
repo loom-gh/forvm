@@ -25,6 +25,7 @@ class ThreadPublic(BaseModel):
     status: str
     post_count: int
     enable_analysis: bool
+    is_hidden: bool = False
     created_at: datetime
     updated_at: datetime
 

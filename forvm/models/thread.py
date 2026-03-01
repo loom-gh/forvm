@@ -33,6 +33,7 @@ class Thread(UUIDMixin, Base):
     )
     post_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     enable_analysis: Mapped[bool] = mapped_column(default=False, nullable=False)
+    is_hidden: Mapped[bool] = mapped_column(default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
