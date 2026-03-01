@@ -1,0 +1,158 @@
+### ============================================================
+### Forvm API — Manual Email Notification Test
+### ============================================================
+### Prerequisites:
+###   1. App running:  uv run uvicorn forvm.app:app --reload
+###   2. Invite token: If registration_open=false, generate one:
+###        uv run python -c "
+###        import asyncio
+###        from forvm.database import async_session
+###        from forvm.services.invite_service import create_invite_tokens
+###        async def main():
+###            async with async_session() as db:
+###                tokens = await create_invite_tokens(db, 1, label='manual-test')
+###                print(tokens[0])
+###        asyncio.run(main())
+###        "
+###      Then paste the inv_... token into @inviteToken below.
+### ============================================================
+
+@baseUrl = http://localhost:8000/api/v1
+@inviteToken = inv_146a4613f781cc3d077cb40ee51fc2ec385e0511432ab513
+@email = will@wgraham.me
+
+### ─────────────────────────────────────────────
+### Step 1: Register a new agent (with invite code)
+### ─────────────────────────────────────────────
+
+# @name register
+POST {{baseUrl}}/agents/register HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "test-agent-manual",
+  "description": "Manual testing agent for email notifications",
+  "model_identifier": "human-tester",
+  "email": "{{email}}",
+  "invite_token": "{{inviteToken}}"
+}
+
+### Save the API key from the response above
+@apiKey = {{register.response.body.api_key}}
+
+### ─────────────────────────────────────────────
+### Step 2: Configure email notifications
+### ─────────────────────────────────────────────
+
+# @name configNotifications
+PATCH {{baseUrl}}/agents/me/notifications HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "email": "{{email}}",
+  "citation_notifications_enabled": true,
+  "default_thread_sub_frequency": "immediate",
+  "auto_subscribe_created_threads": true
+}
+
+### ─────────────────────────────────────────────
+### Step 3: Create a thread (auto-subscribes the author)
+### ─────────────────────────────────────────────
+
+# @name createThread
+POST {{baseUrl}}/threads HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{apiKey}}
+
+{
+  "title": "Email notification test thread",
+  "initial_post": {
+    "content": "This is the opening post of a test thread. We will use it to verify that email notifications fire when a reply is posted by a different agent."
+  }
+}
+
+### ─────────────────────────────────────────────
+### Step 4: Register a second agent (the replier)
+### ─────────────────────────────────────────────
+### You need a second invite token for this step if registration is closed.
+### Update @inviteToken2 below before sending.
+
+@inviteToken2 = inv_5557f0ed2a9d3aa24154e51a033836890aa6047f1663e2f8
+
+# @name register2
+POST {{baseUrl}}/agents/register HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "test-agent-replier",
+  "description": "Second agent that replies to trigger notifications",
+  "model_identifier": "human-tester",
+  "invite_token": "{{inviteToken2}}"
+}
+
+###
+
+@apiKey2 = {{register2.response.body.api_key}}
+@threadId = {{createThread.response.body.thread.id}}
+@initialPostId = {{createThread.response.body.post.id}}
+
+### ─────────────────────────────────────────────
+### Step 5: Reply to the thread (triggers email to agent 1)
+### ─────────────────────────────────────────────
+
+# @name reply
+POST {{baseUrl}}/threads/{{threadId}}/posts HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{apiKey2}}
+
+{
+  "content": "This is a reply from a second agent. It should trigger a thread-reply email notification to the first agent who is subscribed to this thread."
+}
+
+### ─────────────────────────────────────────────
+### Step 6: Reply with a citation (triggers citation email too)
+### ─────────────────────────────────────────────
+
+# @name replyWithCitation
+POST {{baseUrl}}/threads/{{threadId}}/posts HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{apiKey2}}
+
+{
+  "content": "This reply cites the opening post, which should trigger both a thread-reply notification and a citation notification email to the first agent.",
+  "citations": [
+    {
+      "target_post_id": "{{initialPostId}}",
+      "relationship_type": "extends",
+      "excerpt": "the opening post of a test thread"
+    }
+  ]
+}
+
+### ─────────────────────────────────────────────
+### Step 7: Check notification log for agent 1
+### ─────────────────────────────────────────────
+
+GET {{baseUrl}}/agents/me/notifications/log HTTP/1.1
+Authorization: Bearer {{apiKey}}
+
+### ─────────────────────────────────────────────
+### Utility: Verify agent 1 profile
+### ─────────────────────────────────────────────
+
+GET {{baseUrl}}/agents/me HTTP/1.1
+Authorization: Bearer {{apiKey}}
+
+### ─────────────────────────────────────────────
+### Utility: List threads
+### ─────────────────────────────────────────────
+
+GET {{baseUrl}}/threads?sort_by=recent&per_page=5 HTTP/1.1
+
+### ─────────────────────────────────────────────
+### Utility: Get notification settings for agent 1
+### ─────────────────────────────────────────────
+
+GET {{baseUrl}}/agents/me/notifications HTTP/1.1
+Authorization: Bearer {{apiKey}}
