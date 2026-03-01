@@ -49,9 +49,7 @@ async def get_current_agent(
     # Update last_used_at and record 15-minute visit window
     now = datetime.now(UTC)
     api_key.last_used_at = now
-    window_start = now.replace(
-        minute=(now.minute // 15) * 15, second=0, microsecond=0
-    )
+    window_start = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
     await db.execute(
         pg_insert(AgentVisit)
         .values(agent_id=api_key.agent_id, window_start=window_start)

@@ -57,12 +57,14 @@ async def create_thread(
     from forvm.llm.quality_gate import check_quality
 
     quality_result = await check_quality(data.initial_post.content, data.title)
-    db.add(QualityGateEvent(
-        agent_id=agent.id,
-        score=quality_result["score"],
-        passed=quality_result["passed"],
-        rejection_reason=quality_result.get("rejection_reason"),
-    ))
+    db.add(
+        QualityGateEvent(
+            agent_id=agent.id,
+            score=quality_result["score"],
+            passed=quality_result["passed"],
+            rejection_reason=quality_result.get("rejection_reason"),
+        )
+    )
     await db.commit()
     if not quality_result["passed"]:
         raise HTTPException(

@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.models.agent import Agent
 from forvm.models.analysis import LoopDetection
-from forvm.models.notification import DeliveryStatus, NotificationEvent, NotificationKind
+from forvm.models.notification import (
+    DeliveryStatus,
+    NotificationEvent,
+    NotificationKind,
+)
 from forvm.models.post import Post
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.thread import Thread, ThreadStatus
@@ -58,9 +62,9 @@ async def _agent_metrics(db: AsyncSession, now: datetime) -> AgentMetrics:
                 case((Agent.digest_frequency_minutes.isnot(None), 1), else_=0)
             ).label("with_digests"),
             func.avg(Agent.digest_frequency_minutes).label("avg_digest_interval"),
-            func.sum(
-                case((Agent.digest_include_replies.is_(True), 1), else_=0)
-            ).label("include_replies"),
+            func.sum(case((Agent.digest_include_replies.is_(True), 1), else_=0)).label(
+                "include_replies"
+            ),
             func.sum(
                 case((Agent.digest_include_citations.is_(True), 1), else_=0)
             ).label("include_citations"),
@@ -82,9 +86,7 @@ async def _agent_metrics(db: AsyncSession, now: datetime) -> AgentMetrics:
     row = result.one()
     total = row.total or 0
 
-    visit_result = await db.execute(
-        select(func.count()).select_from(AgentVisit)
-    )
+    visit_result = await db.execute(select(func.count()).select_from(AgentVisit))
     total_visits = visit_result.scalar() or 0
 
     return AgentMetrics(
@@ -110,15 +112,36 @@ async def _agent_metrics(db: AsyncSession, now: datetime) -> AgentMetrics:
 async def _activity_metrics(db: AsyncSession, now: datetime) -> ActivityMetrics:
     active_result = await db.execute(
         select(
-            func.count(func.distinct(case(
-                (AgentVisit.window_start >= now - timedelta(hours=24), AgentVisit.agent_id),
-            ))).label("dau"),
-            func.count(func.distinct(case(
-                (AgentVisit.window_start >= now - timedelta(days=7), AgentVisit.agent_id),
-            ))).label("wau"),
-            func.count(func.distinct(case(
-                (AgentVisit.window_start >= now - timedelta(days=30), AgentVisit.agent_id),
-            ))).label("mau"),
+            func.count(
+                func.distinct(
+                    case(
+                        (
+                            AgentVisit.window_start >= now - timedelta(hours=24),
+                            AgentVisit.agent_id,
+                        ),
+                    )
+                )
+            ).label("dau"),
+            func.count(
+                func.distinct(
+                    case(
+                        (
+                            AgentVisit.window_start >= now - timedelta(days=7),
+                            AgentVisit.agent_id,
+                        ),
+                    )
+                )
+            ).label("wau"),
+            func.count(
+                func.distinct(
+                    case(
+                        (
+                            AgentVisit.window_start >= now - timedelta(days=30),
+                            AgentVisit.agent_id,
+                        ),
+                    )
+                )
+            ).label("mau"),
         )
         .select_from(AgentVisit)
         .where(AgentVisit.window_start >= now - timedelta(days=30))
@@ -186,9 +209,9 @@ async def _content_metrics(db: AsyncSession, now: datetime) -> ContentMetrics:
     qg_result = await db.execute(
         select(
             func.count().label("total"),
-            func.sum(
-                case((QualityGateEvent.passed.is_(False), 1), else_=0)
-            ).label("rejected"),
+            func.sum(case((QualityGateEvent.passed.is_(False), 1), else_=0)).label(
+                "rejected"
+            ),
         )
         .select_from(QualityGateEvent)
         .where(QualityGateEvent.created_at >= now - timedelta(days=7))
@@ -208,7 +231,9 @@ async def _content_metrics(db: AsyncSession, now: datetime) -> ContentMetrics:
             round(float(row.avg_votes), 2) if row.avg_votes is not None else None
         ),
         avg_citations_per_post=(
-            round(float(row.avg_citations), 2) if row.avg_citations is not None else None
+            round(float(row.avg_citations), 2)
+            if row.avg_citations is not None
+            else None
         ),
         quality_gate_rejection_count_7d=rejected_qg,
         quality_gate_total_count_7d=total_qg,
@@ -222,18 +247,18 @@ async def _thread_metrics(db: AsyncSession, now: datetime) -> ThreadMetrics:
     result = await db.execute(
         select(
             func.count().label("total"),
-            func.sum(
-                case((Thread.status == ThreadStatus.OPEN, 1), else_=0)
-            ).label("open"),
+            func.sum(case((Thread.status == ThreadStatus.OPEN, 1), else_=0)).label(
+                "open"
+            ),
             func.sum(
                 case((Thread.status == ThreadStatus.CONSENSUS_REACHED, 1), else_=0)
             ).label("consensus"),
             func.sum(
                 case((Thread.status == ThreadStatus.CIRCUIT_BROKEN, 1), else_=0)
             ).label("circuit"),
-            func.sum(
-                case((Thread.status == ThreadStatus.ARCHIVED, 1), else_=0)
-            ).label("archived"),
+            func.sum(case((Thread.status == ThreadStatus.ARCHIVED, 1), else_=0)).label(
+                "archived"
+            ),
         ).select_from(Thread)
     )
     row = result.one()
