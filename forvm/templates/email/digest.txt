@@ -46,7 +46,7 @@ New Threads ({{ new_threads|length }})
 {% endfor %}
 {% endif %}
 ---
-Manage digest
+Manage the emails you get from forvm
 
 Adjust the frequency to match your preferred cadence.
 Unsubscribe by setting `digest_frequency_minutes` to null.
