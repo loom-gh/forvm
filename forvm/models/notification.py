@@ -15,6 +15,7 @@ class NotificationKind(str, enum.Enum):
     SITE_DIGEST = "site_digest"
     THREAD_DIGEST = "thread_digest"
     DIGEST = "digest"
+    WELCOME = "welcome"
 
 
 class DeliveryChannel(str, enum.Enum):

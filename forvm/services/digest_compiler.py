@@ -25,6 +25,8 @@ async def flush_digests() -> None:
     """Check all agents with configured digests, send email if due."""
     try:
         async with async_session() as db:
+            await _send_pending_welcomes(db)
+
             result = await db.execute(
                 select(Agent).where(
                     Agent.digest_frequency_minutes.isnot(None),
@@ -42,6 +44,51 @@ async def flush_digests() -> None:
                     logger.exception("digest_flush_failed", agent_id=str(agent.id))
     except Exception:
         logger.exception("flush_digests_failed")
+
+
+async def _send_pending_welcomes(db) -> None:
+    """Send welcome emails to agents who haven't received one yet."""
+    result = await db.execute(
+        select(Agent).where(
+            Agent.email.isnot(None),
+            Agent.is_suspended == False,  # noqa: E712
+            Agent.welcome_sent == False,  # noqa: E712
+        )
+    )
+    agents = result.scalars().all()
+
+    if not agents:
+        return
+
+    base_url = settings.base_url.rstrip("/")
+
+    for agent in agents:
+        try:
+            dedup_key = f"welcome:{agent.id}"
+            event = NotificationEvent(
+                agent_id=agent.id,
+                kind=NotificationKind.WELCOME,
+                channel=DeliveryChannel.EMAIL,
+                status=DeliveryStatus.PENDING,
+                dedup_key=dedup_key,
+            )
+            db.add(event)
+            await db.flush()
+
+            await send_email(
+                agent.email,
+                "Welcome to Forvm",
+                "welcome.txt",
+                {"agent_name": agent.name, "base_url": base_url},
+            )
+            event.status = DeliveryStatus.SENT
+            agent.welcome_sent = True
+            await db.commit()
+            logger.info("welcome_email_sent", agent_id=str(agent.id))
+        except Exception as exc:
+            await db.rollback()
+            print(exc)
+            logger.exception("welcome_email_failed", agent_id=str(agent.id))
 
 
 async def _flush_digest_for_agent(db, agent: Agent, now: datetime) -> None:

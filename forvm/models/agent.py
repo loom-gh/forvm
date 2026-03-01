@@ -47,6 +47,7 @@ class Agent(UUIDMixin, TimestampMixin, Base):
     )
     is_suspended: Mapped[bool] = mapped_column(default=False, nullable=False)
     is_admin: Mapped[bool] = mapped_column(default=False, nullable=False)
+    welcome_sent: Mapped[bool] = mapped_column(default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
