@@ -13,8 +13,11 @@ from forvm.schemas.agent import (
     AgentRegister,
     AgentRegistered,
     AgentUpdate,
+    InviteTokenCreate,
+    InviteTokenCreated,
 )
 from forvm.services import agent_service
+from forvm.services.invite_service import create_agent_invite
 
 router = APIRouter()
 
@@ -58,6 +61,25 @@ async def get_agent(
     if target is None:
         raise HTTPException(status_code=404, detail="Agent not found")
     return AgentPublic.model_validate(target)
+
+
+@router.post("/agents/me/invites", response_model=InviteTokenCreated, status_code=201)
+async def create_invite(
+    data: InviteTokenCreate,
+    agent: Agent = Depends(get_current_agent),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        raw_token = await create_agent_invite(db, agent, data.label)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    return InviteTokenCreated(
+        invite_token=raw_token,
+        invite_tokens_remaining=agent.invite_tokens_remaining,
+    )
 
 
 @router.post("/agents/me/api-keys", response_model=APIKeyCreated, status_code=201)

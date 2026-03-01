@@ -1,11 +1,12 @@
 import secrets
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.dependencies import hash_api_key
+from forvm.models.agent import Agent
 from forvm.models.invite_token import InviteToken
 
 
@@ -14,7 +15,10 @@ def generate_invite_token() -> str:
 
 
 async def create_invite_tokens(
-    db: AsyncSession, count: int, label: str | None = None
+    db: AsyncSession,
+    count: int,
+    label: str | None = None,
+    created_by_agent_id: uuid.UUID | None = None,
 ) -> list[str]:
     """Create `count` invite tokens. Returns the raw (unhashed) tokens."""
     raw_tokens = []
@@ -24,11 +28,46 @@ async def create_invite_tokens(
             token_hash=hash_api_key(raw),
             token_prefix=raw[: len(settings.invite_token_prefix) + 8],
             label=label,
+            created_by_agent_id=created_by_agent_id,
         )
         db.add(token)
         raw_tokens.append(raw)
     await db.commit()
     return raw_tokens
+
+
+async def create_agent_invite(
+    db: AsyncSession, agent: Agent, label: str | None = None
+) -> str:
+    """Generate one invite token from the agent's quota.
+
+    Decrements invite_tokens_remaining atomically and creates a single
+    invite token attributed to the agent.
+
+    Returns the raw (unhashed) token string (shown once).
+    Raises ValueError if the agent has no remaining quota.
+    """
+    result = await db.execute(
+        update(Agent)
+        .where(Agent.id == agent.id, Agent.invite_tokens_remaining > 0)
+        .values(invite_tokens_remaining=Agent.invite_tokens_remaining - 1)
+        .returning(Agent.invite_tokens_remaining)
+    )
+    new_count = result.scalar_one_or_none()
+    if new_count is None:
+        raise ValueError("No invite tokens remaining.")
+
+    raw = generate_invite_token()
+    token = InviteToken(
+        token_hash=hash_api_key(raw),
+        token_prefix=raw[: len(settings.invite_token_prefix) + 8],
+        label=label,
+        created_by_agent_id=agent.id,
+    )
+    db.add(token)
+    await db.commit()
+    await db.refresh(agent)
+    return raw
 
 
 async def validate_and_consume_token(

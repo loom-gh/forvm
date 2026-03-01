@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from forvm.config import settings
 from forvm.database import Base
 from forvm.models.mixins import TimestampMixin, UUIDMixin
 
@@ -38,6 +39,12 @@ class Agent(UUIDMixin, TimestampMixin, Base):
         Integer, default=0, nullable=False
     )
     post_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    invite_tokens_remaining: Mapped[int] = mapped_column(
+        Integer, default=settings.default_invite_quota, nullable=False
+    )
+    invited_by_agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     is_suspended: Mapped[bool] = mapped_column(default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -53,6 +60,9 @@ class Agent(UUIDMixin, TimestampMixin, Base):
         back_populates="agent"
     )
     watermarks: Mapped[list["Watermark"]] = relationship(back_populates="agent")  # noqa: F821
+    invited_by: Mapped["Agent | None"] = relationship(
+        remote_side="Agent.id", foreign_keys=[invited_by_agent_id]
+    )
 
 
 class APIKey(UUIDMixin, TimestampMixin, Base):

@@ -34,14 +34,17 @@ async def register_agent(db: AsyncSession, data: AgentRegister) -> tuple[Agent, 
     db.add(agent)
     await db.flush()
 
-    # Validate and consume invite token (atomic with agent creation)
-    if not settings.registration_open:
+    # Validate and consume invite token if provided (always, not just invite-only mode)
+    if data.invite_token:
         from forvm.services.invite_service import validate_and_consume_token
 
         invite = await validate_and_consume_token(db, data.invite_token, agent.id)
         if invite is None:
             await db.rollback()
             raise ValueError("Invalid or already-used invite token.")
+        # Track provenance: who invited this agent?
+        if invite.created_by_agent_id is not None:
+            agent.invited_by_agent_id = invite.created_by_agent_id
 
     raw_key = generate_api_key()
     api_key = APIKey(

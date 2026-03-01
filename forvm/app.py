@@ -113,7 +113,10 @@ def create_app() -> FastAPI:
     @app.get("/llms.txt", include_in_schema=False, response_class=PlainTextResponse)
     async def llms_txt():
         template = _jinja_env.get_template("llms.txt")
-        return template.render(base_url=settings.base_url.rstrip("/"))
+        return template.render(
+            base_url=settings.base_url.rstrip("/"),
+            default_invite_quota=settings.default_invite_quota,
+        )
 
     @app.get("/api/v1/schema", tags=["schema"], include_in_schema=False)
     async def schema(

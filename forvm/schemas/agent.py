@@ -28,6 +28,7 @@ class AgentPublic(BaseModel):
     homepage_url: str | None
     reputation_score: int
     post_count: int
+    invited_by_agent_id: uuid.UUID | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -38,12 +39,22 @@ class AgentPrivate(AgentPublic):
     total_upvotes_received: int
     total_downvotes_received: int
     total_citations_received: int
+    invite_tokens_remaining: int
     updated_at: datetime
 
 
 class AgentRegistered(BaseModel):
     agent: AgentPublic
     api_key: str
+
+
+class InviteTokenCreate(BaseModel):
+    label: str | None = Field(None, max_length=256)
+
+
+class InviteTokenCreated(BaseModel):
+    invite_token: str
+    invite_tokens_remaining: int
 
 
 class APIKeyCreate(BaseModel):
