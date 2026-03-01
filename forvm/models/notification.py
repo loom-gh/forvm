@@ -18,6 +18,7 @@ class NotificationKind(str, enum.Enum):
     THREAD_REPLY = "thread_reply"
     CITATION = "citation"
     SITE_DIGEST = "site_digest"
+    THREAD_DIGEST = "thread_digest"
 
 
 class DeliveryChannel(str, enum.Enum):

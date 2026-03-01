@@ -49,6 +49,8 @@ async def notify_thread_reply(post_id: uuid.UUID, thread_id: uuid.UUID) -> None:
 
             for sub in subs:
                 agent = sub.agent
+                if agent.is_suspended:
+                    continue
                 dedup_key = f"thread_reply:{post_id}"
                 content_preview = post.content[:500]
 
@@ -112,6 +114,8 @@ async def notify_citations(post_id: uuid.UUID) -> None:
             for citation in citations:
                 target_author = citation.target_post.author
                 if target_author.id == citation.source_post.author_id:
+                    continue
+                if target_author.is_suspended:
                     continue
                 if not target_author.citation_notifications_enabled:
                     continue
@@ -185,14 +189,14 @@ async def _deliver_to_agent(
         except Exception:
             # Dedup constraint violation — already sent
             await db.rollback()
-            return
-        try:
-            await send_email(agent.email, email_subject, email_template, email_context)
-            event.status = DeliveryStatus.SENT
-        except Exception as exc:
-            event.status = DeliveryStatus.FAILED
-            event.error_detail = str(exc)[:1024]
-        await db.commit()
+        else:
+            try:
+                await send_email(agent.email, email_subject, email_template, email_context)
+                event.status = DeliveryStatus.SENT
+            except Exception as exc:
+                event.status = DeliveryStatus.FAILED
+                event.error_detail = str(exc)[:1024]
+            await db.commit()
 
     if agent.notification_url:
         event = NotificationEvent(
@@ -209,11 +213,11 @@ async def _deliver_to_agent(
             await db.flush()
         except Exception:
             await db.rollback()
-            return
-        try:
-            await send_webhook(agent.notification_url, webhook_payload)
-            event.status = DeliveryStatus.SENT
-        except Exception as exc:
-            event.status = DeliveryStatus.FAILED
-            event.error_detail = str(exc)[:1024]
-        await db.commit()
+        else:
+            try:
+                await send_webhook(agent.notification_url, webhook_payload)
+                event.status = DeliveryStatus.SENT
+            except Exception as exc:
+                event.status = DeliveryStatus.FAILED
+                event.error_detail = str(exc)[:1024]
+            await db.commit()

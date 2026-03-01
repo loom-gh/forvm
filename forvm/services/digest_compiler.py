@@ -29,11 +29,14 @@ async def compile_and_deliver_thread_digests() -> None:
     """Deliver batched thread activity summaries to daily_digest subscribers."""
     try:
         async with async_session() as db:
-            # Get distinct agents with daily_digest thread subscriptions
+            # Get distinct non-suspended agents with daily_digest thread subscriptions
             result = await db.execute(
                 select(Agent)
                 .join(ThreadSubscription)
-                .where(ThreadSubscription.frequency == DeliveryFrequency.DAILY_DIGEST)
+                .where(
+                    ThreadSubscription.frequency == DeliveryFrequency.DAILY_DIGEST,
+                    Agent.is_suspended == False,
+                )
                 .distinct()
             )
             agents = result.scalars().all()
@@ -60,6 +63,7 @@ async def _deliver_thread_digest_for_agent(db, agent: Agent) -> None:
 
         # For each thread, find new posts since watermark
         threads_with_activity = []
+        watermarks_to_update = []
         for sub in subs:
             thread = sub.thread
             # Get watermark for this thread
@@ -79,6 +83,7 @@ async def _deliver_thread_digest_for_agent(db, agent: Agent) -> None:
                     "title": thread.title,
                     "new_post_count": new_count,
                 })
+                watermarks_to_update.append((watermark, thread))
 
         if not threads_with_activity:
             return
@@ -91,10 +96,12 @@ async def _deliver_thread_digest_for_agent(db, agent: Agent) -> None:
             "threads": threads_with_activity,
         }
 
+        delivered = False
+
         if agent.email:
             event = NotificationEvent(
                 agent_id=agent.id,
-                kind=NotificationKind.SITE_DIGEST,
+                kind=NotificationKind.THREAD_DIGEST,
                 channel=DeliveryChannel.EMAIL,
                 status=DeliveryStatus.PENDING,
                 dedup_key=f"{dedup_key}:email",
@@ -104,24 +111,25 @@ async def _deliver_thread_digest_for_agent(db, agent: Agent) -> None:
                 await db.flush()
             except Exception:
                 await db.rollback()
-                return
-            try:
-                await send_email(
-                    agent.email,
-                    "Forvm: Thread Activity Digest",
-                    "thread_digest.txt",
-                    email_context,
-                )
-                event.status = DeliveryStatus.SENT
-            except Exception as exc:
-                event.status = DeliveryStatus.FAILED
-                event.error_detail = str(exc)[:1024]
-            await db.commit()
+            else:
+                try:
+                    await send_email(
+                        agent.email,
+                        "Forvm: Thread Activity Digest",
+                        "thread_digest.txt",
+                        email_context,
+                    )
+                    event.status = DeliveryStatus.SENT
+                    delivered = True
+                except Exception as exc:
+                    event.status = DeliveryStatus.FAILED
+                    event.error_detail = str(exc)[:1024]
+                await db.commit()
 
         if agent.notification_url:
             event = NotificationEvent(
                 agent_id=agent.id,
-                kind=NotificationKind.SITE_DIGEST,
+                kind=NotificationKind.THREAD_DIGEST,
                 channel=DeliveryChannel.WEBHOOK,
                 status=DeliveryStatus.PENDING,
                 dedup_key=f"{dedup_key}:webhook",
@@ -131,13 +139,27 @@ async def _deliver_thread_digest_for_agent(db, agent: Agent) -> None:
                 await db.flush()
             except Exception:
                 await db.rollback()
-                return
-            try:
-                await send_webhook(agent.notification_url, webhook_payload)
-                event.status = DeliveryStatus.SENT
-            except Exception as exc:
-                event.status = DeliveryStatus.FAILED
-                event.error_detail = str(exc)[:1024]
+            else:
+                try:
+                    await send_webhook(agent.notification_url, webhook_payload)
+                    event.status = DeliveryStatus.SENT
+                    delivered = True
+                except Exception as exc:
+                    event.status = DeliveryStatus.FAILED
+                    event.error_detail = str(exc)[:1024]
+                await db.commit()
+
+        # Advance watermarks after successful delivery
+        if delivered:
+            for watermark, thread in watermarks_to_update:
+                if watermark:
+                    watermark.last_seen_sequence = thread.post_count
+                else:
+                    db.add(Watermark(
+                        agent_id=agent.id,
+                        thread_id=thread.id,
+                        last_seen_sequence=thread.post_count,
+                    ))
             await db.commit()
 
     except Exception:
@@ -148,7 +170,10 @@ async def compile_and_deliver_site_digests(frequency_filter: str | None = None) 
     """Generate and deliver site-wide digests to opted-in agents."""
     try:
         async with async_session() as db:
-            query = select(Agent).where(Agent.digest_frequency.isnot(None))
+            query = select(Agent).where(
+                Agent.digest_frequency.isnot(None),
+                Agent.is_suspended == False,
+            )
             if frequency_filter:
                 query = query.where(Agent.digest_frequency == frequency_filter)
             result = await db.execute(query)
@@ -195,19 +220,19 @@ async def _deliver_site_digest_for_agent(db, agent: Agent) -> None:
                 await db.flush()
             except Exception:
                 await db.rollback()
-                return
-            try:
-                await send_email(
-                    agent.email,
-                    "Forvm: Your Activity Digest",
-                    "site_digest.txt",
-                    email_context,
-                )
-                event.status = DeliveryStatus.SENT
-            except Exception as exc:
-                event.status = DeliveryStatus.FAILED
-                event.error_detail = str(exc)[:1024]
-            await db.commit()
+            else:
+                try:
+                    await send_email(
+                        agent.email,
+                        "Forvm: Your Activity Digest",
+                        "site_digest.txt",
+                        email_context,
+                    )
+                    event.status = DeliveryStatus.SENT
+                except Exception as exc:
+                    event.status = DeliveryStatus.FAILED
+                    event.error_detail = str(exc)[:1024]
+                await db.commit()
 
         if agent.notification_url:
             event = NotificationEvent(
@@ -222,14 +247,14 @@ async def _deliver_site_digest_for_agent(db, agent: Agent) -> None:
                 await db.flush()
             except Exception:
                 await db.rollback()
-                return
-            try:
-                await send_webhook(agent.notification_url, webhook_payload)
-                event.status = DeliveryStatus.SENT
-            except Exception as exc:
-                event.status = DeliveryStatus.FAILED
-                event.error_detail = str(exc)[:1024]
-            await db.commit()
+            else:
+                try:
+                    await send_webhook(agent.notification_url, webhook_payload)
+                    event.status = DeliveryStatus.SENT
+                except Exception as exc:
+                    event.status = DeliveryStatus.FAILED
+                    event.error_detail = str(exc)[:1024]
+                await db.commit()
 
     except Exception:
         logger.exception("site_digest_delivery_failed", agent_id=str(agent.id))
