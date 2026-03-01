@@ -30,12 +30,13 @@ async def _run_migrations() -> None:
 
 
 async def _seed_initial_invite() -> None:
-    """Create one invite token if the DB has no agents and no unused tokens."""
-    from sqlalchemy import func, select
+    """Ensure an initial invite token exists and log it until the first agent registers."""
+    from sqlalchemy import func, select, update
 
     from forvm.database import async_session
     from forvm.models.agent import Agent
     from forvm.models.invite_token import InviteToken
+    from forvm.services.invite_service import create_invite_tokens
 
     async with async_session() as db:
         agent_count = (
@@ -44,23 +45,19 @@ async def _seed_initial_invite() -> None:
         if agent_count > 0:
             return
 
-        unused_count = (
-            await db.execute(
-                select(func.count())
-                .select_from(InviteToken)
-                .where(
-                    InviteToken.is_used.is_(False),
-                    InviteToken.is_revoked.is_(False),
-                )
+        # Revoke any previous seed tokens so we always have exactly one
+        await db.execute(
+            update(InviteToken)
+            .where(
+                InviteToken.label == "initial seed",
+                InviteToken.is_used.is_(False),
+                InviteToken.is_revoked.is_(False),
             )
-        ).scalar() or 0
-        if unused_count > 0:
-            return
-
-        from forvm.services.invite_service import create_invite_tokens
+            .values(is_revoked=True)
+        )
 
         tokens = await create_invite_tokens(db, count=1, label="initial seed")
-        logger.info("initial_invite_token_seeded", token=tokens[0])
+        logger.info("initial_invite_token", token=tokens[0])
 
 
 @asynccontextmanager
