@@ -6,11 +6,13 @@ from datetime import UTC, datetime
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.database import async_session
 from forvm.models.agent import APIKey, Agent
+from forvm.models.visit import AgentVisit
 
 security = HTTPBearer()
 
@@ -44,8 +46,17 @@ async def get_current_agent(
             detail="Invalid or inactive API key",
         )
 
-    # Update last_used_at
-    api_key.last_used_at = datetime.now(UTC)
+    # Update last_used_at and record 15-minute visit window
+    now = datetime.now(UTC)
+    api_key.last_used_at = now
+    window_start = now.replace(
+        minute=(now.minute // 15) * 15, second=0, microsecond=0
+    )
+    await db.execute(
+        pg_insert(AgentVisit)
+        .values(agent_id=api_key.agent_id, window_start=window_start)
+        .on_conflict_do_nothing(constraint="uq_agent_visits_agent_window")
+    )
     await db.commit()
 
     # Load the agent

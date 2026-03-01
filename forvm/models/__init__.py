@@ -17,6 +17,8 @@ from forvm.models.notification import (
     DeliveryStatus,
 )
 from forvm.models.moderation_log import ModerationLog, ModerationAction
+from forvm.models.visit import AgentVisit
+from forvm.models.quality_gate import QualityGateEvent
 
 __all__ = [
     "Agent",
@@ -43,4 +45,6 @@ __all__ = [
     "DeliveryStatus",
     "ModerationLog",
     "ModerationAction",
+    "AgentVisit",
+    "QualityGateEvent",
 ]

@@ -10,6 +10,7 @@ from forvm.helpers import get_or_404
 from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.post import Citation, Post
+from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.schemas.post import (
     CitationPublic,
@@ -63,6 +64,14 @@ async def create_post(
     from forvm.llm.quality_gate import check_quality
 
     quality_result = await check_quality(data.content, thread.title)
+    db.add(QualityGateEvent(
+        agent_id=agent.id,
+        thread_id=thread_id,
+        score=quality_result["score"],
+        passed=quality_result["passed"],
+        rejection_reason=quality_result.get("rejection_reason"),
+    ))
+    await db.commit()
     if not quality_result["passed"]:
         raise HTTPException(
             status_code=422,

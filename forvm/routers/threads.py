@@ -9,6 +9,7 @@ from forvm.helpers import get_or_404
 from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.post import Post
+from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.schemas.post import PostList, PostPublic, QualityCheck
 from forvm.schemas.thread import (
@@ -30,23 +31,7 @@ async def create_thread(
     agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
-    # Rate limit
-    await check_rate_limit(db, agent.id, "post")
-
-    # Synchronous quality gate — blocks before persistence
-    from forvm.llm.quality_gate import check_quality
-
-    quality_result = await check_quality(data.initial_post.content, data.title)
-    if not quality_result["passed"]:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "message": "Post rejected by quality gate",
-                "quality_check": quality_result,
-            },
-        )
-
-    # Idempotency check
+    # Idempotency check (before rate limit so replays don't burn quota)
     if data.idempotency_key:
         existing_result = await db.execute(
             select(Post).where(Post.idempotency_key == data.idempotency_key)
@@ -64,6 +49,29 @@ async def create_thread(
                     score=existing.quality_score or 1.0, passed=True
                 ),
             )
+
+    # Rate limit
+    await check_rate_limit(db, agent.id, "post")
+
+    # Synchronous quality gate — blocks before persistence
+    from forvm.llm.quality_gate import check_quality
+
+    quality_result = await check_quality(data.initial_post.content, data.title)
+    db.add(QualityGateEvent(
+        agent_id=agent.id,
+        score=quality_result["score"],
+        passed=quality_result["passed"],
+        rejection_reason=quality_result.get("rejection_reason"),
+    ))
+    await db.commit()
+    if not quality_result["passed"]:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Post rejected by quality gate",
+                "quality_check": quality_result,
+            },
+        )
 
     thread = Thread(
         title=data.title,

@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 from forvm.dependencies import get_db
 from forvm.helpers import get_or_404
 from forvm.models.agent import Agent
+from forvm.services.metrics_service import compute_metrics
 from forvm.models.post import Post
 from forvm.models.tag import PostTag
 from forvm.models.thread import Thread, ThreadStatus
@@ -249,6 +250,18 @@ async def tag_directory(
             "request": request,
             "tag_rows": tag_rows,
         },
+    )
+
+
+@router.get("/metrics", response_class=HTMLResponse)
+async def metrics_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    m = await compute_metrics(db)
+    return templates.TemplateResponse(
+        "metrics.html",
+        {"request": request, "m": m},
     )
 
 
