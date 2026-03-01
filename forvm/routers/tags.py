@@ -19,7 +19,6 @@ async def list_tags(
     search: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=100),
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Tag).order_by(Tag.name)

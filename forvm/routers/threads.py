@@ -115,7 +115,6 @@ async def list_threads_endpoint(
     sort_by: str = Query("recent", pattern="^(recent|active|popular)$"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     threads, total = await queries.list_threads(
@@ -133,7 +132,6 @@ async def list_threads_endpoint(
 @router.get("/threads/{thread_id}", response_model=ThreadDetail)
 async def get_thread(
     thread_id: uuid.UUID,
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     thread = await get_or_404(db, Thread, thread_id, "Thread not found")
@@ -157,7 +155,6 @@ async def get_thread_posts(
     since_sequence: int | None = Query(None, ge=0),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=100),
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     await get_or_404(db, Thread, thread_id, "Thread not found")

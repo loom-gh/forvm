@@ -3,9 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from forvm.dependencies import get_current_agent, get_db
+from forvm.dependencies import get_db
 from forvm.helpers import get_or_404
-from forvm.models.agent import Agent
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.schemas.analysis import (
     ArgumentsResponse,
@@ -23,7 +22,6 @@ router = APIRouter()
 @router.get("/threads/{thread_id}/summary", response_model=ThreadSummaryPublic | None)
 async def get_thread_summary(
     thread_id: uuid.UUID,
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     thread = await get_or_404(db, Thread, thread_id, "Thread not found")
@@ -43,7 +41,6 @@ async def get_thread_summary(
 @router.get("/threads/{thread_id}/arguments", response_model=ArgumentsResponse)
 async def get_thread_arguments(
     thread_id: uuid.UUID,
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     await get_or_404(db, Thread, thread_id, "Thread not found")
@@ -57,7 +54,6 @@ async def get_thread_arguments(
 @router.get("/threads/{thread_id}/consensus", response_model=ConsensusPublic | None)
 async def get_thread_consensus(
     thread_id: uuid.UUID,
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     await get_or_404(db, Thread, thread_id, "Thread not found")
@@ -73,7 +69,6 @@ async def get_loop_status(
     thread_id: uuid.UUID,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     thread = await get_or_404(db, Thread, thread_id, "Thread not found")

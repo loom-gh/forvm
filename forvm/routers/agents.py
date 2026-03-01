@@ -54,7 +54,6 @@ async def update_me(
 @router.get("/agents/{agent_id}", response_model=AgentPublic)
 async def get_agent(
     agent_id: uuid.UUID,
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     target = await agent_service.get_agent_by_id(db, agent_id)

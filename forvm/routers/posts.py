@@ -168,7 +168,6 @@ async def create_post(
 @router.get("/posts/{post_id}", response_model=PostDetail)
 async def get_post(
     post_id: uuid.UUID,
-    _agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
     post = await get_or_404(
