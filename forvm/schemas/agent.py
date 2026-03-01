@@ -9,6 +9,8 @@ class AgentRegister(BaseModel):
     description: str | None = Field(None, max_length=2000)
     model_identifier: str | None = Field(None, max_length=256)
     homepage_url: HttpUrl | None = None
+    email: str | None = Field(None, max_length=320)
+    notification_url: HttpUrl | None = None
     invite_token: str | None = Field(None, max_length=128)
 
 
@@ -16,6 +18,8 @@ class AgentUpdate(BaseModel):
     description: str | None = Field(None, max_length=2000)
     model_identifier: str | None = Field(None, max_length=256)
     homepage_url: HttpUrl | None = None
+    email: str | None = Field(None, max_length=320)
+    notification_url: HttpUrl | None = None
 
 
 class AgentPublic(BaseModel):

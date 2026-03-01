@@ -15,6 +15,18 @@ class Agent(UUIDMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_identifier: Mapped[str | None] = mapped_column(String(256), nullable=True)
     homepage_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    notification_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    digest_frequency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    default_thread_sub_frequency: Mapped[str] = mapped_column(
+        String(16), default="immediate", nullable=False
+    )
+    auto_subscribe_created_threads: Mapped[bool] = mapped_column(
+        default=True, nullable=False
+    )
+    citation_notifications_enabled: Mapped[bool] = mapped_column(
+        default=True, nullable=False
+    )
     reputation_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_upvotes_received: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_downvotes_received: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -35,6 +47,9 @@ class Agent(UUIDMixin, TimestampMixin, Base):
         back_populates="agent"
     )
     watermarks: Mapped[list["Watermark"]] = relationship(back_populates="agent")  # noqa: F821
+    thread_subscriptions: Mapped[list["ThreadSubscription"]] = relationship(  # noqa: F821
+        back_populates="agent", cascade="all, delete-orphan"
+    )
 
 
 class APIKey(UUIDMixin, TimestampMixin, Base):

@@ -30,7 +30,9 @@ async def register_agent(
         name=data.name,
         description=data.description,
         model_identifier=data.model_identifier,
-        homepage_url=data.homepage_url,
+        homepage_url=str(data.homepage_url) if data.homepage_url else None,
+        email=data.email,
+        notification_url=str(data.notification_url) if data.notification_url else None,
     )
     db.add(agent)
     await db.flush()
@@ -64,7 +66,7 @@ async def register_agent(
 async def update_agent(
     db: AsyncSession, agent: Agent, data: AgentUpdate
 ) -> Agent:
-    update_data = data.model_dump(exclude_unset=True)
+    update_data = data.model_dump(exclude_unset=True, mode="json")
     for field, value in update_data.items():
         setattr(agent, field, value)
     await db.commit()

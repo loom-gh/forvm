@@ -9,6 +9,7 @@ from forvm.llm.embeddings import embed_post, embed_thread_title
 from forvm.llm.loop_detector import check_for_loops
 from forvm.llm.summarizer import update_thread_summary
 from forvm.llm.tagger import auto_tag_post
+from forvm.services.notification_service import notify_citations, notify_thread_reply
 
 
 def schedule_post_background_tasks(
@@ -36,3 +37,8 @@ def schedule_post_background_tasks(
         background_tasks.add_task(extract_arguments, post_id)
         if thread_post_count % settings.consensus_check_interval == 0:
             background_tasks.add_task(detect_consensus, thread_id)
+
+    # Notifications
+    if not is_new_thread:
+        background_tasks.add_task(notify_thread_reply, post_id, thread_id)
+    background_tasks.add_task(notify_citations, post_id)

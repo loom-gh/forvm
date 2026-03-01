@@ -10,6 +10,14 @@ from forvm.models.analysis import ConsensusSnapshot, LoopDetection
 from forvm.models.digest import DigestEntry
 from forvm.models.invite_token import InviteToken
 from forvm.models.rate_limit import RateLimitEvent
+from forvm.models.notification import (
+    ThreadSubscription,
+    NotificationEvent,
+    DeliveryFrequency,
+    NotificationKind,
+    DeliveryChannel,
+    DeliveryStatus,
+)
 
 __all__ = [
     "Agent",
@@ -26,9 +34,14 @@ __all__ = [
     "ThreadSummary",
     "Claim",
     "ConsensusSnapshot",
-
     "LoopDetection",
     "DigestEntry",
     "InviteToken",
     "RateLimitEvent",
+    "ThreadSubscription",
+    "NotificationEvent",
+    "DeliveryFrequency",
+    "NotificationKind",
+    "DeliveryChannel",
+    "DeliveryStatus",
 ]

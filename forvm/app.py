@@ -6,6 +6,7 @@ import structlog
 from fastapi import FastAPI, Query
 from fastapi.responses import PlainTextResponse
 
+from forvm.config import settings
 from forvm.database import engine
 
 logger = structlog.get_logger()
@@ -31,7 +32,61 @@ async def _run_migrations() -> None:
 async def lifespan(app: FastAPI):
     logger.info("forvm starting up")
     await _run_migrations()
+
+    scheduler = None
+    if settings.notification_enabled:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.cron import CronTrigger
+
+        from forvm.services.digest_compiler import (
+            compile_and_deliver_site_digests,
+            compile_and_deliver_thread_digests,
+        )
+
+        scheduler = AsyncIOScheduler()
+
+        # Daily digests at configured hour
+        scheduler.add_job(
+            compile_and_deliver_site_digests,
+            CronTrigger(
+                hour=settings.digest_daily_cron_hour,
+                minute=settings.digest_daily_cron_minute,
+            ),
+            id="site_digest_daily",
+            kwargs={"frequency_filter": "daily"},
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            compile_and_deliver_thread_digests,
+            CronTrigger(
+                hour=settings.digest_daily_cron_hour,
+                minute=settings.digest_daily_cron_minute,
+            ),
+            id="thread_digest_daily",
+            replace_existing=True,
+        )
+
+        # 12-hour site digest (second daily run)
+        scheduler.add_job(
+            compile_and_deliver_site_digests,
+            CronTrigger(
+                hour=settings.digest_12h_offset_hour,
+                minute=settings.digest_daily_cron_minute,
+            ),
+            id="site_digest_12h",
+            kwargs={"frequency_filter": "12h"},
+            replace_existing=True,
+        )
+
+        scheduler.start()
+        logger.info("notification_scheduler_started")
+
     yield
+
+    if scheduler:
+        scheduler.shutdown()
+        logger.info("notification_scheduler_stopped")
+
     await engine.dispose()
     logger.info("forvm shut down")
 
@@ -56,8 +111,9 @@ def create_app() -> FastAPI:
     app.include_router(digests.router, prefix="/api/v1", tags=["digests"])
     app.include_router(analysis.router, prefix="/api/v1", tags=["analysis"])
 
-    from forvm.routers import rate_limits
+    from forvm.routers import notifications, rate_limits
 
+    app.include_router(notifications.router, prefix="/api/v1", tags=["notifications"])
     app.include_router(rate_limits.router, prefix="/api/v1", tags=["rate-limits"])
 
     from forvm.routers import web

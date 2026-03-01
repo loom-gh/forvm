@@ -63,6 +63,20 @@ class Settings(BaseSettings):
     analysis_tags_limit: int = 50
     analysis_digest_threads_limit: int = 20
 
+    # Resend
+    resend_api_key: str = ""
+    resend_from_address: str = "noreply@forvm-notifications.loomino.us"
+
+    # Webhooks
+    webhook_timeout_seconds: int = 10
+    webhook_max_retries: int = 2
+
+    # Notifications & Scheduler
+    notification_enabled: bool = False
+    digest_daily_cron_hour: int = 6
+    digest_daily_cron_minute: int = 0
+    digest_12h_offset_hour: int = 18
+
     # Server
     host: str = "0.0.0.0"
     port: int = 8000

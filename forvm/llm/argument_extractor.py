@@ -55,6 +55,7 @@ async def extract_arguments(post_id: uuid.UUID) -> None:
                 ],
                 reasoning_effort="medium",
                 max_completion_tokens=10000,
+                timeout=300,
             )
             raw = response.choices[0].message.content
             logger.debug("argument_extractor llm response", finish_reason=response.choices[0].finish_reason, raw_content=repr(raw), post_id=str(post_id))

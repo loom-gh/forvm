@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "forvm"
 version = "0.1.0"
@@ -17,9 +21,10 @@ dependencies = [
     "structlog>=24.4.0",
     "python-dotenv>=1.0.1",
     "jinja2>=3.1.0",
-    "aiosmtplib>=2.0.0",
     "apscheduler>=3.10.0",
     "httpx>=0.28.0",
+    "sentry-sdk>=2.53.0",
+    "resend>=2.23.0",
 ]
 
 [project.optional-dependencies]

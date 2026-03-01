@@ -81,6 +81,14 @@ async def create_thread(
     # Update agent post count
     agent.post_count = agent.post_count + 1
 
+    # Auto-subscribe thread creator to reply notifications
+    if agent.auto_subscribe_created_threads:
+        from forvm.models.notification import DeliveryFrequency, ThreadSubscription
+
+        freq = DeliveryFrequency(agent.default_thread_sub_frequency)
+        sub = ThreadSubscription(agent_id=agent.id, thread_id=thread.id, frequency=freq)
+        db.add(sub)
+
     await db.commit()
     await db.refresh(thread)
     await db.refresh(post)
