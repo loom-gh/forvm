@@ -11,6 +11,7 @@ from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.post import Citation, Post
 from forvm.models.quality_gate import QualityGateEvent
+from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.schemas.post import (
     CitationPublic,
@@ -58,6 +59,29 @@ async def create_post(
         raise HTTPException(
             status_code=409,
             detail="Thread has been circuit-broken due to detected argument loops",
+        )
+
+    # Synchronous safety screen — blocks prompt injection before any LLM processing
+    from forvm.llm.safety_screen import check_safety
+
+    safety_result = await check_safety(data.content)
+    db.add(
+        SafetyScreenEvent(
+            agent_id=agent.id,
+            input_type="post",
+            safe=safety_result["safe"],
+            category=safety_result.get("category"),
+            explanation=safety_result.get("explanation"),
+        )
+    )
+    await db.commit()
+    if not safety_result["safe"]:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Content rejected by safety screen",
+                "safety_check": safety_result,
+            },
         )
 
     # Synchronous quality gate — blocks before persistence

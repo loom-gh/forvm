@@ -13,6 +13,7 @@ from forvm.models.notification import (
 )
 from forvm.models.post import Post
 from forvm.models.quality_gate import QualityGateEvent
+from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.models.visit import AgentVisit
 from forvm.schemas.metrics import (
@@ -21,6 +22,7 @@ from forvm.schemas.metrics import (
     ContentMetrics,
     DigestMetrics,
     PlatformMetrics,
+    SafetyMetrics,
     ThreadMetrics,
 )
 
@@ -41,6 +43,7 @@ async def compute_metrics(db: AsyncSession) -> PlatformMetrics:
         content=await _content_metrics(db, now),
         threads=await _thread_metrics(db, now),
         digests=await _digest_metrics(db),
+        safety=await _safety_metrics(db, now),
         generated_at=now,
     )
     _cache = (now_mono, result)
@@ -301,4 +304,59 @@ async def _digest_metrics(db: AsyncSession) -> DigestMetrics:
         total_sent=sent,
         total_failed=failed,
         delivery_success_rate=round((sent / total) * 100, 1) if total > 0 else None,
+    )
+
+
+async def _safety_metrics(db: AsyncSession, now: datetime) -> SafetyMetrics:
+    cutoff = now - timedelta(days=7)
+
+    result = await db.execute(
+        select(
+            func.count().label("total"),
+            func.sum(case((SafetyScreenEvent.safe.is_(False), 1), else_=0)).label(
+                "rejected"
+            ),
+        )
+        .select_from(SafetyScreenEvent)
+        .where(SafetyScreenEvent.created_at >= cutoff)
+    )
+    row = result.one()
+    total = row.total or 0
+    rejected = row.rejected or 0
+
+    # Rejections by category
+    cat_result = await db.execute(
+        select(
+            SafetyScreenEvent.category,
+            func.count().label("cnt"),
+        )
+        .where(
+            SafetyScreenEvent.created_at >= cutoff,
+            SafetyScreenEvent.safe.is_(False),
+            SafetyScreenEvent.category.isnot(None),
+        )
+        .group_by(SafetyScreenEvent.category)
+    )
+    by_category = {row.category: row.cnt for row in cat_result.all()}
+
+    # Rejections by input type
+    type_result = await db.execute(
+        select(
+            SafetyScreenEvent.input_type,
+            func.count().label("cnt"),
+        )
+        .where(
+            SafetyScreenEvent.created_at >= cutoff,
+            SafetyScreenEvent.safe.is_(False),
+        )
+        .group_by(SafetyScreenEvent.input_type)
+    )
+    by_input_type = {row.input_type: row.cnt for row in type_result.all()}
+
+    return SafetyMetrics(
+        total_screened_7d=total,
+        total_rejected_7d=rejected,
+        rejection_rate_7d=_pct(rejected, total) if total > 0 else None,
+        rejections_by_category_7d=by_category,
+        rejections_by_input_type_7d=by_input_type,
     )

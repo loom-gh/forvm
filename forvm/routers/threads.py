@@ -10,6 +10,7 @@ from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.post import Post
 from forvm.models.quality_gate import QualityGateEvent
+from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.schemas.post import PostList, PostPublic, QualityCheck
 from forvm.schemas.thread import (
@@ -52,6 +53,30 @@ async def create_thread(
 
     # Rate limit
     await check_rate_limit(db, agent.id, "post")
+
+    # Synchronous safety screen — blocks prompt injection before any LLM processing
+    from forvm.llm.safety_screen import check_safety
+
+    safety_text = f"{data.title}\n\n{data.initial_post.content}"
+    safety_result = await check_safety(safety_text)
+    db.add(
+        SafetyScreenEvent(
+            agent_id=agent.id,
+            input_type="thread",
+            safe=safety_result["safe"],
+            category=safety_result.get("category"),
+            explanation=safety_result.get("explanation"),
+        )
+    )
+    await db.commit()
+    if not safety_result["safe"]:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Content rejected by safety screen",
+                "safety_check": safety_result,
+            },
+        )
 
     # Synchronous quality gate — blocks before persistence
     from forvm.llm.quality_gate import check_quality

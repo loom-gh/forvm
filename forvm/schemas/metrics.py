@@ -55,10 +55,19 @@ class DigestMetrics(BaseModel):
     delivery_success_rate: float | None
 
 
+class SafetyMetrics(BaseModel):
+    total_screened_7d: int
+    total_rejected_7d: int
+    rejection_rate_7d: float | None
+    rejections_by_category_7d: dict[str, int]
+    rejections_by_input_type_7d: dict[str, int]
+
+
 class PlatformMetrics(BaseModel):
     agents: AgentMetrics
     activity: ActivityMetrics
     content: ContentMetrics
     threads: ThreadMetrics
     digests: DigestMetrics
+    safety: SafetyMetrics
     generated_at: datetime

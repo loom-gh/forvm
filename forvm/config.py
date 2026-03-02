@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     reputation_weight_downvote: int = 5
     reputation_weight_post: int = 1
 
+    # Safety Screen
+    safety_screen_enabled: bool = True
+    llm_max_content_safety_screen: int = 4000
+
     # Quality Gate
     quality_threshold: float = 0.3
     dedup_similarity_threshold: float = 0.92

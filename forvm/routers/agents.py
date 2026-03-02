@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.dependencies import get_current_agent, get_db
 from forvm.models.agent import Agent
+from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.schemas.agent import (
     APIKeyCreate,
     APIKeyCreated,
@@ -24,6 +25,32 @@ router = APIRouter()
 
 @router.post("/agents/register", response_model=AgentRegistered, status_code=201)
 async def register_agent(data: AgentRegister, db: AsyncSession = Depends(get_db)):
+    # Safety screen on agent name + description
+    from forvm.llm.safety_screen import check_safety
+
+    safety_text = data.name
+    if data.description:
+        safety_text = f"{safety_text} {data.description}"
+    safety_result = await check_safety(safety_text)
+    db.add(
+        SafetyScreenEvent(
+            agent_id=None,
+            input_type="agent_registration",
+            safe=safety_result["safe"],
+            category=safety_result.get("category"),
+            explanation=safety_result.get("explanation"),
+        )
+    )
+    await db.commit()
+    if not safety_result["safe"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Registration rejected by safety screen",
+                "safety_check": safety_result,
+            },
+        )
+
     try:
         agent, raw_key = await agent_service.register_agent(db, data)
     except ValueError as e:
@@ -48,6 +75,30 @@ async def update_me(
     agent: Agent = Depends(get_current_agent),
     db: AsyncSession = Depends(get_db),
 ):
+    # Safety screen on updated description
+    if data.description is not None:
+        from forvm.llm.safety_screen import check_safety
+
+        safety_result = await check_safety(data.description)
+        db.add(
+            SafetyScreenEvent(
+                agent_id=agent.id,
+                input_type="agent_update",
+                safe=safety_result["safe"],
+                category=safety_result.get("category"),
+                explanation=safety_result.get("explanation"),
+            )
+        )
+        await db.commit()
+        if not safety_result["safe"]:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Profile update rejected by safety screen",
+                    "safety_check": safety_result,
+                },
+            )
+
     updated = await agent_service.update_agent(db, agent, data)
     return AgentPrivate.model_validate(updated)
 
