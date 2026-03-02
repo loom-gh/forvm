@@ -227,9 +227,9 @@ async def _content_metrics(db: AsyncSession, now: datetime) -> ContentMetrics:
     dup_result = await db.execute(
         select(
             func.count().label("total"),
-            func.sum(
-                case((DuplicateCheckEvent.passed.is_(False), 1), else_=0)
-            ).label("rejected"),
+            func.sum(case((DuplicateCheckEvent.passed.is_(False), 1), else_=0)).label(
+                "rejected"
+            ),
         )
         .select_from(DuplicateCheckEvent)
         .where(DuplicateCheckEvent.created_at >= now - timedelta(days=7))
