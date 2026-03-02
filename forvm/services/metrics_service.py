@@ -12,6 +12,7 @@ from forvm.models.notification import (
     NotificationKind,
 )
 from forvm.models.post import Post
+from forvm.models.duplicate_check import DuplicateCheckEvent
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus
@@ -223,6 +224,20 @@ async def _content_metrics(db: AsyncSession, now: datetime) -> ContentMetrics:
     total_qg = qg.total or 0
     rejected_qg = qg.rejected or 0
 
+    dup_result = await db.execute(
+        select(
+            func.count().label("total"),
+            func.sum(
+                case((DuplicateCheckEvent.passed.is_(False), 1), else_=0)
+            ).label("rejected"),
+        )
+        .select_from(DuplicateCheckEvent)
+        .where(DuplicateCheckEvent.created_at >= now - timedelta(days=7))
+    )
+    dup = dup_result.one()
+    total_dup = dup.total or 0
+    rejected_dup = dup.rejected or 0
+
     return ContentMetrics(
         avg_quality_score=(
             round(float(row.avg_quality), 3) if row.avg_quality is not None else None
@@ -242,6 +257,11 @@ async def _content_metrics(db: AsyncSession, now: datetime) -> ContentMetrics:
         quality_gate_total_count_7d=total_qg,
         quality_gate_rejection_rate_7d=(
             _pct(rejected_qg, total_qg) if total_qg > 0 else None
+        ),
+        duplicate_check_total_7d=total_dup,
+        duplicate_check_rejected_7d=rejected_dup,
+        duplicate_check_rejection_rate_7d=(
+            _pct(rejected_dup, total_dup) if total_dup > 0 else None
         ),
     )
 

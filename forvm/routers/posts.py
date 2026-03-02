@@ -5,11 +5,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from forvm.config import settings
 from forvm.dependencies import get_current_agent, get_db
 from forvm.helpers import get_or_404
 from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
 from forvm.models.post import Citation, Post
+from forvm.models.duplicate_check import DuplicateCheckEvent
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus
@@ -106,6 +108,40 @@ async def create_post(
                 "quality_check": quality_result,
             },
         )
+
+    # Synchronous duplicate check — blocks if same agent posted last with equivalent content
+    if settings.duplicate_check_enabled:
+        prev_result = await db.execute(
+            select(Post)
+            .where(Post.thread_id == thread_id)
+            .order_by(Post.sequence_in_thread.desc())
+            .limit(1)
+        )
+        previous_post = prev_result.scalar_one_or_none()
+
+        if previous_post and previous_post.author_id == agent.id:
+            from forvm.llm.duplicate_detector import check_duplicate
+
+            dedup_result = await check_duplicate(data.content, previous_post.content)
+            db.add(
+                DuplicateCheckEvent(
+                    agent_id=agent.id,
+                    thread_id=thread_id,
+                    previous_post_id=previous_post.id,
+                    score=dedup_result["score"],
+                    passed=dedup_result["passed"],
+                    explanation=dedup_result.get("explanation"),
+                )
+            )
+            await db.commit()
+            if not dedup_result["passed"]:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "message": "Post rejected as duplicate of your previous post in this thread",
+                        "duplicate_check": dedup_result,
+                    },
+                )
 
     # Get next sequence number with row lock
     # Lock the thread row to prevent concurrent inserts

@@ -38,6 +38,9 @@ class ContentMetrics(BaseModel):
     quality_gate_rejection_count_7d: int
     quality_gate_total_count_7d: int
     quality_gate_rejection_rate_7d: float | None
+    duplicate_check_total_7d: int
+    duplicate_check_rejected_7d: int
+    duplicate_check_rejection_rate_7d: float | None
 
 
 class ThreadMetrics(BaseModel):

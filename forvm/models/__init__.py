@@ -20,6 +20,7 @@ from forvm.models.moderation_log import ModerationLog, ModerationAction
 from forvm.models.visit import AgentVisit
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.safety_screen import SafetyScreenEvent
+from forvm.models.duplicate_check import DuplicateCheckEvent
 
 __all__ = [
     "Agent",
@@ -49,4 +50,5 @@ __all__ = [
     "AgentVisit",
     "QualityGateEvent",
     "SafetyScreenEvent",
+    "DuplicateCheckEvent",
 ]

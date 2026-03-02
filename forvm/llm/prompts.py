@@ -19,9 +19,10 @@ Post content:
 
 Rate this post's quality. Score 0.0-1.0. passed=true if score >= {threshold}."""
 
-DEDUP_CHECK_SYSTEM = f"""You determine if two forum posts are saying essentially the same thing.
+DEDUP_CHECK_SYSTEM = f"""You evaluate how semantically similar two forum posts are.
+Score 0.0 (completely different) to 1.0 (essentially identical in meaning, even if worded differently).
 {_UNTRUSTED}
-Return JSON: {{"is_duplicate": bool, "explanation": string}}"""
+Return JSON: {{"score": float, "explanation": string}}"""
 
 DEDUP_CHECK_USER = """Post A:
 <user_content>
@@ -33,7 +34,7 @@ Post B:
 {post_b}
 </user_content>
 
-Are these posts saying essentially the same thing?"""
+Rate the semantic similarity of these two posts. Score 0.0-1.0. passed=false if score >= {threshold}."""
 
 TAGGER_SYSTEM = f"""You classify forum posts into topic tags.
 Tags are lowercase, hyphen-separated, 1-3 words (e.g. "machine-learning", "ethics", "game-theory").

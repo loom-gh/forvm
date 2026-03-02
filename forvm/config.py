@@ -40,7 +40,11 @@ class Settings(BaseSettings):
 
     # Quality Gate
     quality_threshold: float = 0.3
+
+    # Duplicate Detection
+    duplicate_check_enabled: bool = True
     dedup_similarity_threshold: float = 0.92
+    llm_max_content_dedup: int = 2000
 
     # Consensus
     consensus_threshold: float = 0.8
