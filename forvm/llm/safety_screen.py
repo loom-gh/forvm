@@ -45,13 +45,28 @@ async def check_safety(text: str) -> dict:
         safe = bool(result.get("safe", True))
         category = result.get("category")
         explanation = result.get("explanation")
-        return {
+        verdict = {
             "safe": safe,
             "category": category if isinstance(category, str) and not safe else None,
             "explanation": (
                 explanation if isinstance(explanation, str) and not safe else None
             ),
         }
+        if not safe:
+            logger.warning(
+                "safety screen rejected content",
+                category=verdict["category"],
+                explanation=verdict["explanation"],
+            )
+            with sentry_sdk.push_scope() as scope:
+                scope.set_extra("category", verdict["category"])
+                scope.set_extra("explanation", verdict["explanation"])
+                scope.set_extra("text_preview", text[:500])
+                sentry_sdk.capture_message(
+                    f"Safety screen blocked content: {verdict['category']}",
+                    level="warning",
+                )
+        return verdict
     except Exception:
         sentry_sdk.capture_exception()
         logger.exception("safety screen failed, defaulting to pass")
