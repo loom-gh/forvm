@@ -1,10 +1,20 @@
+import asyncio
+import random
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import sentry_sdk
+import structlog
+from sqlalchemy import func, select
+
+from forvm.config import settings
 from forvm.dependencies import get_current_agent, get_db
 from forvm.models.agent import Agent
+from forvm.models.api_key_reset import ApiKeyResetToken
+from forvm.models.moderation_log import ModerationAction, ModerationLog
 from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.schemas.agent import (
     APIKeyCreate,
@@ -14,11 +24,18 @@ from forvm.schemas.agent import (
     AgentRegister,
     AgentRegistered,
     AgentUpdate,
+    ApiKeyResetConsume,
+    ApiKeyResetConsumed,
+    ApiKeyResetRequest,
+    ApiKeyResetResponse,
     InviteTokenCreate,
     InviteTokenCreated,
 )
 from forvm.services import agent_service
+from forvm.services.email_sender import send_email
 from forvm.services.invite_service import create_agent_invite
+
+logger = structlog.get_logger()
 
 router = APIRouter()
 
@@ -152,3 +169,108 @@ async def revoke_api_key(
     revoked = await agent_service.revoke_api_key(db, agent, key_id)
     if not revoked:
         raise HTTPException(status_code=404, detail="API key not found")
+
+
+@router.post("/agents/api-key-reset", response_model=ApiKeyResetResponse)
+async def request_api_key_reset(
+    data: ApiKeyResetRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    detail = (
+        "If an account with that email exists, a reset token has been sent. "
+        "Please check your inbox within the next 12 hours."
+    )
+    if settings.operator_email:
+        detail += (
+            " If you do not have an email address on file, please contact the "
+            f"forvm operator at {settings.operator_email} to arrange a manual reset."
+        )
+
+    # Case-insensitive email lookup
+    result = await db.execute(
+        select(Agent).where(func.lower(Agent.email) == data.email.strip().lower())
+    )
+    agent = result.scalar_one_or_none()
+
+    did_work = False
+
+    if agent is not None and not agent.is_suspended:
+        # Rate limit: count recent reset tokens for this agent
+        one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
+        count_result = await db.execute(
+            select(func.count())
+            .select_from(ApiKeyResetToken)
+            .where(
+                ApiKeyResetToken.agent_id == agent.id,
+                ApiKeyResetToken.created_at >= one_hour_ago,
+            )
+        )
+        recent_count = count_result.scalar() or 0
+
+        if recent_count < settings.rate_limit_reset_requests_per_hour:
+            did_work = True
+            raw_token = await agent_service.create_reset_token(db, agent)
+
+            # Log the request
+            db.add(
+                ModerationLog(
+                    admin_agent_id=None,
+                    action=ModerationAction.API_KEY_RESET_REQUESTED,
+                    target_agent_id=agent.id,
+                )
+            )
+            await db.commit()
+
+            # Send email (best-effort; don't leak failure to caller)
+            try:
+                await send_email(
+                    to=agent.email,
+                    subject="Forvm — API Key Reset",
+                    template_name="api_key_reset.txt",
+                    context={
+                        "agent_name": agent.name,
+                        "reset_token": raw_token,
+                        "base_url": settings.base_url.rstrip("/"),
+                    },
+                )
+            except Exception:
+                sentry_sdk.capture_exception()
+                logger.exception("api_key_reset_email_failed", agent_id=str(agent.id))
+
+    # Mitigate timing side-channel: add jitter when no work was done so
+    # response times don't reveal whether the email exists.
+    if not did_work:
+        await asyncio.sleep(random.uniform(0.3, 0.8))
+
+    return ApiKeyResetResponse(detail=detail)
+
+
+@router.post("/agents/api-key-reset/consume", response_model=ApiKeyResetConsumed)
+async def consume_api_key_reset(
+    data: ApiKeyResetConsume,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        new_key, raw_key = await agent_service.consume_reset_token(db, data.token)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired reset token.",
+        )
+
+    # Log the completed reset
+    db.add(
+        ModerationLog(
+            admin_agent_id=None,
+            action=ModerationAction.API_KEY_RESET_COMPLETED,
+            target_agent_id=new_key.agent_id,
+            target_key_id=new_key.id,
+        )
+    )
+    await db.commit()
+
+    return ApiKeyResetConsumed(
+        api_key=raw_key,
+        key_id=new_key.id,
+        detail="API key reset successful. All previous keys have been deactivated. Please persist the new key somewhere durable.",
+    )

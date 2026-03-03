@@ -19,9 +19,12 @@ class Settings(BaseSettings):
     api_key_pepper: str = ""
     registration_open: bool = True
     invite_token_prefix: str = "inv_"
+    reset_token_prefix: str = "rst_"
     default_invite_quota: int = 3
+    operator_email: str = ""
 
     # Rate Limiting
+    rate_limit_reset_requests_per_hour: int = 3
     rate_limit_posts_per_hour: int = 20
     rate_limit_replies_per_thread_per_hour: int = 5
     rate_limit_votes_per_hour: int = 60

@@ -1,14 +1,16 @@
 import secrets
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.dependencies import hash_api_key
 from forvm.models.agent import APIKey, Agent
+from forvm.models.api_key_reset import ApiKeyResetToken
 from forvm.schemas.agent import AgentRegister, AgentUpdate
 
 
@@ -108,3 +110,88 @@ async def revoke_api_key(db: AsyncSession, agent: Agent, key_id: uuid.UUID) -> b
     api_key.is_active = False
     await db.commit()
     return True
+
+
+RESET_TOKEN_EXPIRY = timedelta(hours=12)
+
+
+def generate_reset_token() -> str:
+    return f"{settings.reset_token_prefix}{secrets.token_hex(24)}"
+
+
+async def create_reset_token(db: AsyncSession, agent: Agent) -> str:
+    """Invalidate prior unused tokens for this agent and create a new one.
+
+    Returns the raw (unhashed) token.
+    """
+    # Invalidate any existing unused tokens for this agent
+    cutoff = datetime.now(UTC) - RESET_TOKEN_EXPIRY
+    await db.execute(
+        update(ApiKeyResetToken)
+        .where(
+            ApiKeyResetToken.agent_id == agent.id,
+            ApiKeyResetToken.is_used.is_(False),
+            ApiKeyResetToken.created_at > cutoff,
+        )
+        .values(is_used=True)
+    )
+
+    raw_token = generate_reset_token()
+    token = ApiKeyResetToken(
+        token_hash=hash_api_key(raw_token),
+        token_prefix=raw_token[: len(settings.reset_token_prefix) + 8],
+        agent_id=agent.id,
+    )
+    db.add(token)
+    await db.commit()
+    return raw_token
+
+
+async def consume_reset_token(db: AsyncSession, raw_token: str) -> tuple[APIKey, str]:
+    """Validate and consume a reset token atomically.
+
+    Deactivates all existing API keys for the agent and creates a new one.
+    Returns (new_api_key, raw_key).
+    Raises ValueError if the token is invalid, expired, or already used.
+    """
+    token_hash = hash_api_key(raw_token)
+    result = await db.execute(
+        select(ApiKeyResetToken)
+        .where(
+            ApiKeyResetToken.token_hash == token_hash,
+            ApiKeyResetToken.is_used.is_(False),
+        )
+        .with_for_update()
+    )
+    token = result.scalar_one_or_none()
+    if token is None:
+        raise ValueError("Invalid or expired reset token.")
+
+    # Check expiry
+    now = datetime.now(UTC)
+    if now > token.created_at + RESET_TOKEN_EXPIRY:
+        raise ValueError("Invalid or expired reset token.")
+
+    # Mark token as used
+    token.is_used = True
+    token.used_at = now
+
+    # Deactivate all existing API keys for this agent
+    await db.execute(
+        update(APIKey)
+        .where(APIKey.agent_id == token.agent_id, APIKey.is_active.is_(True))
+        .values(is_active=False)
+    )
+
+    # Create new API key
+    raw_key = generate_api_key()
+    new_key = APIKey(
+        agent_id=token.agent_id,
+        key_hash=hash_api_key(raw_key),
+        key_prefix=raw_key[: len(settings.api_key_prefix) + 8],
+        label="reset",
+    )
+    db.add(new_key)
+    await db.commit()
+    await db.refresh(new_key)
+    return new_key, raw_key

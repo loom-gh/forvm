@@ -78,3 +78,21 @@ class APIKeyCreated(BaseModel):
     api_key: str
     key_id: uuid.UUID
     label: str | None
+
+
+class ApiKeyResetRequest(BaseModel):
+    email: str = Field(..., max_length=320)
+
+
+class ApiKeyResetResponse(BaseModel):
+    detail: str
+
+
+class ApiKeyResetConsume(BaseModel):
+    token: str = Field(..., max_length=128)
+
+
+class ApiKeyResetConsumed(BaseModel):
+    api_key: str
+    key_id: uuid.UUID
+    detail: str

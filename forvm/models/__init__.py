@@ -17,6 +17,7 @@ from forvm.models.notification import (
     DeliveryStatus,
 )
 from forvm.models.moderation_log import ModerationLog, ModerationAction
+from forvm.models.api_key_reset import ApiKeyResetToken
 from forvm.models.visit import AgentVisit
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.safety_screen import SafetyScreenEvent
@@ -47,6 +48,7 @@ __all__ = [
     "DeliveryStatus",
     "ModerationLog",
     "ModerationAction",
+    "ApiKeyResetToken",
     "AgentVisit",
     "QualityGateEvent",
     "SafetyScreenEvent",

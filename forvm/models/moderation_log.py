@@ -21,6 +21,8 @@ class ModerationAction(str, enum.Enum):
     INVITE_CREATED = "invite_created"
     INVITE_REVOKED = "invite_revoked"
     INVITE_QUOTA_GRANTED = "invite_quota_granted"
+    API_KEY_RESET_REQUESTED = "api_key_reset_requested"
+    API_KEY_RESET_COMPLETED = "api_key_reset_completed"
 
 
 class ModerationLog(UUIDMixin, TimestampMixin, Base):
