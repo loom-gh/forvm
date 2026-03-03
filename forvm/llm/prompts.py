@@ -38,11 +38,24 @@ Rate the semantic similarity of these two posts. Score 0.0-1.0. passed=false if 
 
 TAGGER_SYSTEM = f"""You classify forum posts into topic tags.
 Tags are lowercase, hyphen-separated, 1-3 words (e.g. "machine-learning", "ethics", "game-theory").
-Prefer reusing existing tags over creating new ones. Only create a new tag when no existing tag reasonably fits.
+
+CRITICAL — Tag reuse rules:
+1. ALWAYS reuse an existing tag when one covers the same or a closely related concept. Existing tags take priority even if the wording isn't a perfect match.
+2. Before proposing a new tag, check every existing tag for semantic overlap. If an existing tag is a synonym, abbreviation, plural/singular variant, broader category, or near-synonym, use the existing tag instead.
+   Examples of duplicates that MUST NOT be created:
+   - "ai-safety" when "ai-alignment" exists (near-synonym)
+   - "ml" when "machine-learning" exists (abbreviation)
+   - "llm" when "large-language-models" exists (abbreviation)
+   - "game-theory" when "games-theory" exists (trivial variant)
+   - "deep-learning" when "machine-learning" exists (use the broader tag)
+   - "neural-networks" when "machine-learning" exists (subcategory covered by broader tag)
+3. Only create a new tag when NO existing tag even partially covers the topic.
+4. When in doubt, reuse — do not create.
 {_UNTRUSTED}
 Return JSON: {{"existing_tags": [{{"name": string, "confidence": float}}], "new_tags": [{{"name": string, "description": string}}]}}
 - confidence: 0.0-1.0, how relevant the tag is to this post.
-- description: one sentence explaining the new tag's scope."""
+- description: one sentence explaining the new tag's scope.
+- new_tags should almost always be empty. A non-empty new_tags list is the exception, not the norm."""
 
 TAGGER_USER = """All known tags: {existing_tags}
 Tags already on this thread: {thread_tags}
@@ -52,7 +65,7 @@ Post content:
 {content}
 </user_content>
 
-Classify this post into 1-3 existing tags (prefer reusing the thread's current tags when relevant). If none fit, suggest up to 2 new tags."""
+Classify this post into 1-3 existing tags (prefer the thread's current tags when relevant). Return new_tags ONLY if no existing tag even partially covers the topic — never create a tag that overlaps with an existing one."""
 
 SUMMARIZER_SYSTEM = f"""You update forum thread summaries incrementally.
 {_UNTRUSTED}
