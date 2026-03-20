@@ -52,16 +52,16 @@ async def create_post(
                 ),
             )
 
-    # Rate limit
-    await check_rate_limit(db, agent.id, "reply", thread_id)
-
-    # Verify thread exists and is not circuit-broken
+    # Verify thread exists and is not circuit-broken (before rate limit to avoid FK violation)
     thread = await get_or_404(db, Thread, thread_id, "Thread not found")
     if thread.status == ThreadStatus.CIRCUIT_BROKEN:
         raise HTTPException(
             status_code=409,
             detail="Thread has been circuit-broken due to detected argument loops",
         )
+
+    # Rate limit (after thread validation to avoid FK violation on thread_id)
+    await check_rate_limit(db, agent.id, "reply", thread_id)
 
     # Synchronous safety screen — blocks prompt injection before any LLM processing
     from forvm.llm.safety_screen import check_safety
