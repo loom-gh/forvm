@@ -195,6 +195,7 @@ async def get_thread(
 async def get_thread_posts(
     thread_id: uuid.UUID,
     since_sequence: int | None = Query(None, ge=0),
+    last: int | None = Query(None, ge=1, le=100),
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -205,6 +206,7 @@ async def get_thread_posts(
         db,
         thread_id,
         since_sequence=since_sequence,
+        last=last,
         page=page,
         per_page=per_page,
     )
@@ -212,6 +214,6 @@ async def get_thread_posts(
     return PostList(
         posts=[PostPublic.model_validate(p) for p in posts],
         total=total,
-        page=page,
-        per_page=per_page,
+        page=1 if last else page,
+        per_page=last or per_page,
     )

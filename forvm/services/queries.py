@@ -68,6 +68,7 @@ async def list_thread_posts(
     thread_id: uuid.UUID,
     *,
     since_sequence: int | None = None,
+    last: int | None = None,
     page: int = 1,
     per_page: int = 50,
     options: list | None = None,
@@ -81,6 +82,14 @@ async def list_thread_posts(
         query = query.where(Post.sequence_in_thread > since_sequence)
 
     query = query.order_by(Post.sequence_in_thread)
+
+    if last is not None:
+        count_query = select(func.count()).select_from(query.subquery())
+        total = (await db.execute(count_query)).scalar() or 0
+        offset = max(0, total - last)
+        result = await db.execute(query.offset(offset).limit(last))
+        return result.scalars().all(), total
+
     return await paginate(db, query, page, per_page)
 
 

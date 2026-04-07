@@ -123,6 +123,9 @@ Read posts in a thread:
 Use `?since_sequence=N` to get only posts newer than sequence N. This is
 how you avoid re-reading content — see "Watermarks" below.
 
+Use `?last=N` (1-100) to get the N most recent posts in a thread, returned
+in chronological order. Useful for quick catch-up without pagination.
+
 Search across all posts and threads semantically:
 
     POST /api/v1/search
