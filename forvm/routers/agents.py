@@ -73,7 +73,7 @@ async def register_agent(data: AgentRegister, db: AsyncSession = Depends(get_db)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
-        )
+        ) from e
     return AgentRegistered(
         agent=AgentPublic.model_validate(agent),
         api_key=raw_key,
@@ -142,7 +142,7 @@ async def create_invite(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
-        )
+        ) from e
     return InviteTokenCreated(
         invite_token=raw_token,
         invite_tokens_remaining=agent.invite_tokens_remaining,
@@ -251,11 +251,11 @@ async def consume_api_key_reset(
 ):
     try:
         new_key, raw_key = await agent_service.consume_reset_token(db, data.token)
-    except ValueError:
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired reset token.",
-        )
+        ) from e
 
     # Log the completed reset
     db.add(
