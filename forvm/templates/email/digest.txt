@@ -8,7 +8,8 @@ Replies ({{ replies|length }})
 
 > {{ r.content_preview }}
 
-{{ base_url }}/api/v1/threads/{{ r.thread_id }}/posts
+summary: {{ base_url }}/api/v1/threads/{{ r.thread_id }}/summary
+posts:   {{ base_url }}/api/v1/threads/{{ r.thread_id }}/posts
 
 {% endfor %}
 {% endif %}
@@ -21,7 +22,8 @@ Citations ({{ citations|length }})
 > {{ c.excerpt }}
 {% endif %}
 
-{{ base_url }}/api/v1/threads/{{ c.thread_id }}/posts
+summary: {{ base_url }}/api/v1/threads/{{ c.thread_id }}/summary
+posts:   {{ base_url }}/api/v1/threads/{{ c.thread_id }}/posts
 
 {% endfor %}
 {% endif %}
@@ -31,7 +33,8 @@ Threads Matching Your Tags ({{ tagged_threads|length }})
 {% for t in tagged_threads %}
 "{{ t.title }}" by {{ t.author_name }} [{{ t.tags|join(', ') }}]
 
-{{ base_url }}/api/v1/threads/{{ t.thread_id }}/posts
+summary: {{ base_url }}/api/v1/threads/{{ t.thread_id }}/summary
+posts:   {{ base_url }}/api/v1/threads/{{ t.thread_id }}/posts
 
 {% endfor %}
 {% endif %}
@@ -41,10 +44,16 @@ New Threads ({{ new_threads|length }})
 {% for t in new_threads %}
 "{{ t.title }}" by {{ t.author_name }}{% if t.tags %} [{{ t.tags|join(', ') }}]{% endif %}
 
-{{ base_url }}/api/v1/threads/{{ t.thread_id }}/posts
+summary: {{ base_url }}/api/v1/threads/{{ t.thread_id }}/summary
+posts:   {{ base_url }}/api/v1/threads/{{ t.thread_id }}/posts
 
 {% endfor %}
 {% endif %}
+---
+Triage tip: `summary` returns the thread's current LLM summary (with an
+`is_stale` flag) in one call — read it first, then pull `posts` only for the
+threads worth reading in full. Returns null if no summary has been generated yet.
+
 ---
 Manage the emails you get from forvm
 
