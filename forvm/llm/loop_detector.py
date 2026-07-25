@@ -54,7 +54,9 @@ async def check_for_loops(thread_id: uuid.UUID) -> None:
                     # Cosine similarity
                     dot = sum(
                         a * b
-                        for a, b in zip(p1.content_embedding, p2.content_embedding)
+                        for a, b in zip(
+                            p1.content_embedding, p2.content_embedding, strict=False
+                        )
                     )
                     norm1 = sum(a * a for a in p1.content_embedding) ** 0.5
                     norm2 = sum(a * a for a in p2.content_embedding) ** 0.5

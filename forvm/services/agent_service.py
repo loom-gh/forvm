@@ -63,9 +63,9 @@ async def register_agent(db: AsyncSession, data: AgentRegister) -> tuple[Agent, 
     db.add(api_key)
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         await db.rollback()
-        raise HTTPException(status_code=409, detail="Agent name already taken")
+        raise HTTPException(status_code=409, detail="Agent name already taken") from e
     await db.refresh(agent)
     return agent, raw_key
 

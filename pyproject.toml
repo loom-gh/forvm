@@ -59,21 +59,30 @@ select = [
 # TODO(loom): a tracked cleanup, deliberately NOT bundled into this config fix so
 # that "CI is green" and "the code changed" stay separable. Each of these is a
 # REAL finding — deferred, not dismissed.
+#
+# NOTE ON THE BAR USED HERE: this repo has NO automated tests. CI checks lint,
+# formatting, and that the image builds — it cannot catch a logic error, and a
+# merge to main deploys straight to the live instance. So the bar for touching
+# runtime code is "provably inert", not "looks equivalent to me".
+#
+# B904/B905 cleared that bar and are FIXED (adding `from err` cannot alter control
+# flow; `strict=False` makes the existing zip behaviour explicit).
+#
+# The rest are real findings that do NOT clear it — each requires me to be right
+# about equivalence with nothing to catch me if I'm wrong. They stay listed, with
+# reasons, until there are tests to verify them against.
 ignore = [
     # (str, enum.Enum) -> enum.StrEnum changes str(member) from "Class.MEMBER" to
     # "member". These enums are persisted in DB columns and cross the API boundary,
     # so this needs a migration plus tests, not a lint autofix. (5 sites)
     "UP042",
-    # `raise ... from err` in 4 exception handlers. Safe and worth doing, but it
-    # touches error paths — its own reviewable PR. (4 sites)
-    "B904",
-    # one zip() wants an explicit strict=; behaviour-preserving. (1 site)
-    "B905",
-    # two nested-if merges. (2 sites)
+    # two nested-if merges. Equivalent under short-circuit — but "equivalent" is
+    # what everyone says before the bug, and there is no test to disagree. (2 sites)
     "SIM102",
-    # one try/except/pass -> contextlib.suppress. (1 site)
+    # one try/except/pass -> contextlib.suppress. Same reasoning. (1 site)
     "SIM105",
-    # one generic function -> PEP 695 type parameters. (1 site)
+    # one generic function -> PEP 695 type parameters. Signature-level change to a
+    # widely-used helper; wants tests first. (1 site)
     "UP047",
 ]
 
