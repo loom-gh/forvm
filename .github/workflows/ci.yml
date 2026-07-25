@@ -29,6 +29,21 @@ jobs:
       - name: Check formatting
         run: uvx ruff@0.16.0 format --check
 
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # No services declared on purpose: this suite is deliberately
+      # infrastructure-free so it always runs. DB-backed integration tests, when
+      # they arrive, should go in a separate job that stands up postgres.
+      - name: Test
+        run: uv run --extra dev pytest -q
+
   build-and-push:
     runs-on: ubuntu-latest
 
