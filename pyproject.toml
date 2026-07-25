@@ -36,6 +36,13 @@ dev = [
     "pytest-cov>=6.0.0",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Suite deliberately starts with tests that need no database and no network, so
+# they run in CI with no infrastructure. asyncio_mode is set now so DB-backed
+# integration tests can be added later without reconfiguring.
+asyncio_mode = "auto"
+
 [tool.ruff]
 target-version = "py312"
 # Alembic revisions are generated files; we don't hand-maintain their style.
