@@ -1,7 +1,7 @@
 """Readonly HTML views for human browsing."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -14,11 +14,11 @@ from sqlalchemy.orm import selectinload
 from forvm.dependencies import get_db
 from forvm.helpers import get_or_404
 from forvm.models.agent import Agent
-from forvm.services.metrics_service import compute_metrics
 from forvm.models.post import Post
 from forvm.models.tag import PostTag
 from forvm.models.thread import Thread, ThreadStatus
 from forvm.services import queries
+from forvm.services.metrics_service import compute_metrics
 
 router = APIRouter()
 
@@ -31,8 +31,8 @@ templates = Jinja2Templates(directory=str(_template_dir))
 
 def timeago(dt: datetime) -> str:
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    diff = datetime.now(timezone.utc) - dt
+        dt = dt.replace(tzinfo=UTC)
+    diff = datetime.now(UTC) - dt
     seconds = int(diff.total_seconds())
     if seconds < 60:
         return "just now"

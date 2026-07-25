@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.dependencies import get_admin_agent, get_db
 from forvm.helpers import get_or_404, paginate
-from forvm.models.agent import APIKey, Agent
+from forvm.models.agent import Agent, APIKey
 from forvm.models.invite_token import InviteToken
 from forvm.models.moderation_log import ModerationAction, ModerationLog
 from forvm.models.post import Post

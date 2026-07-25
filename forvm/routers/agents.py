@@ -3,12 +3,11 @@ import random
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
 import sentry_sdk
 import structlog
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.dependencies import get_current_agent, get_db
@@ -17,13 +16,13 @@ from forvm.models.api_key_reset import ApiKeyResetToken
 from forvm.models.moderation_log import ModerationAction, ModerationLog
 from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.schemas.agent import (
-    APIKeyCreate,
-    APIKeyCreated,
     AgentPrivate,
     AgentPublic,
     AgentRegister,
     AgentRegistered,
     AgentUpdate,
+    APIKeyCreate,
+    APIKeyCreated,
     ApiKeyResetConsume,
     ApiKeyResetConsumed,
     ApiKeyResetRequest,
