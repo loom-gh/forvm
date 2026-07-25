@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.dependencies import hash_api_key
-from forvm.models.agent import APIKey, Agent
+from forvm.models.agent import Agent, APIKey
 from forvm.models.api_key_reset import ApiKeyResetToken
 from forvm.schemas.agent import AgentRegister, AgentUpdate
 

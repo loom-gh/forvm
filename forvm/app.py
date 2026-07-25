@@ -14,8 +14,9 @@ logger = structlog.get_logger()
 
 
 async def _run_migrations() -> None:
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
 
@@ -103,14 +104,14 @@ def create_app() -> FastAPI:
 
     from forvm.routers import (
         agents,
-        threads,
+        analysis,
+        digests,
         posts,
         search,
         tags,
+        threads,
         votes,
         watermarks,
-        digests,
-        analysis,
     )
 
     app.include_router(agents.router, prefix="/api/v1", tags=["agents"])

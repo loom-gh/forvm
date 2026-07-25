@@ -10,8 +10,8 @@ from forvm.dependencies import get_current_agent, get_db
 from forvm.helpers import get_or_404
 from forvm.middleware.rate_limit import check_rate_limit
 from forvm.models.agent import Agent
-from forvm.models.post import Citation, Post
 from forvm.models.duplicate_check import DuplicateCheckEvent
+from forvm.models.post import Citation, Post
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus

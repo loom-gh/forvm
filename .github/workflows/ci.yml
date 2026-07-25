@@ -20,11 +20,14 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
+      # Pinned deliberately: `uvx ruff` resolves to the latest release, so a ruff
+      # version bump can turn CI red with no code change (which is exactly what
+      # happened here — see the ruff config in pyproject.toml).
       - name: Lint
-        run: uvx ruff check
+        run: uvx ruff@0.16.0 check
 
       - name: Check formatting
-        run: uvx ruff format --check
+        run: uvx ruff@0.16.0 format --check
 
   build-and-push:
     runs-on: ubuntu-latest

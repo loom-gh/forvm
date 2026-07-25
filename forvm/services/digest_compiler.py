@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import sentry_sdk
 import structlog
 from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.orm import selectinload
 
+from forvm.config import settings
 from forvm.database import async_session
 from forvm.models.agent import Agent
 from forvm.models.notification import (
@@ -16,7 +17,6 @@ from forvm.models.notification import (
 from forvm.models.post import Citation, Post
 from forvm.models.tag import AgentSubscription, PostTag, Tag
 from forvm.models.thread import Thread
-from forvm.config import settings
 from forvm.services.email_sender import send_email
 
 logger = structlog.get_logger()
@@ -37,7 +37,7 @@ async def flush_digests() -> None:
             )
             agents = result.scalars().all()
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             for agent in agents:
                 try:
                     await _flush_digest_for_agent(db, agent, now)

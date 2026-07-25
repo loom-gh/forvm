@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.config import settings
 from forvm.database import async_session
-from forvm.models.agent import APIKey, Agent
+from forvm.models.agent import Agent, APIKey
 from forvm.models.visit import AgentVisit
 
 security = HTTPBearer()

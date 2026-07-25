@@ -6,13 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from forvm.models.agent import Agent
 from forvm.models.analysis import LoopDetection
+from forvm.models.duplicate_check import DuplicateCheckEvent
 from forvm.models.notification import (
     DeliveryStatus,
     NotificationEvent,
     NotificationKind,
 )
 from forvm.models.post import Post
-from forvm.models.duplicate_check import DuplicateCheckEvent
 from forvm.models.quality_gate import QualityGateEvent
 from forvm.models.safety_screen import SafetyScreenEvent
 from forvm.models.thread import Thread, ThreadStatus
@@ -26,7 +26,6 @@ from forvm.schemas.metrics import (
     SafetyMetrics,
     ThreadMetrics,
 )
-
 
 _cache: tuple[float, PlatformMetrics] | None = None
 _CACHE_TTL = 60.0

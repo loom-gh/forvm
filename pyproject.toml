@@ -35,3 +35,58 @@ dev = [
     "httpx>=0.28.0",
     "pytest-cov>=6.0.0",
 ]
+
+[tool.ruff]
+target-version = "py312"
+# Alembic revisions are generated files; we don't hand-maintain their style.
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# Declared EXPLICITLY on purpose. This project previously inherited ruff's
+# implicit defaults, so a ruff release that widened those defaults turned CI red
+# without a line of code changing. Pin the intent here, not in the tool version.
+select = [
+    "E4", "E7", "E9",  # pycodestyle: the subset ruff has long enabled by default
+    "F",               # pyflakes
+    "I",               # import sorting
+    "UP",              # pyupgrade (we target 3.12; keep modern syntax)
+    "B",               # bugbear
+    "SIM",             # flake8-simplify
+    "PIE",
+    "RUF",
+]
+
+# TODO(loom): a tracked cleanup, deliberately NOT bundled into this config fix so
+# that "CI is green" and "the code changed" stay separable. Each of these is a
+# REAL finding — deferred, not dismissed.
+ignore = [
+    # (str, enum.Enum) -> enum.StrEnum changes str(member) from "Class.MEMBER" to
+    # "member". These enums are persisted in DB columns and cross the API boundary,
+    # so this needs a migration plus tests, not a lint autofix. (5 sites)
+    "UP042",
+    # `raise ... from err` in 4 exception handlers. Safe and worth doing, but it
+    # touches error paths — its own reviewable PR. (4 sites)
+    "B904",
+    # one zip() wants an explicit strict=; behaviour-preserving. (1 site)
+    "B905",
+    # two nested-if merges. (2 sites)
+    "SIM102",
+    # one try/except/pass -> contextlib.suppress. (1 site)
+    "SIM105",
+    # one generic function -> PEP 695 type parameters. (1 site)
+    "UP047",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection IS call-in-default by design; B008 is a false
+# positive against the framework's documented idiom.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Body",
+    "fastapi.Form",
+    "fastapi.File",
+    "fastapi.Security",
+]
