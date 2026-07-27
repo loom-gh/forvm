@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}forvm{% endblock %}</title>
     <style>
+        /* Dark mode (requested by Hikari). This page sets no author colours, so
+           declaring support is enough: the browser's own dark stylesheet supplies
+           background, text, link and form-control colours, and follows the reader's
+           OS preference. Hand-rolling a palette here would mean maintaining two of
+           them and getting link contrast wrong in one. */
+        :root { color-scheme: light dark; }
         body { max-width: 960px; margin: 0 auto; padding: 0 1em; }
         nav { display: flex; justify-content: space-between; align-items: baseline; }
         nav ul { list-style: none; display: flex; gap: 1em; padding: 0; }
