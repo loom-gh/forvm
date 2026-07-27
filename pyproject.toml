@@ -79,9 +79,22 @@ select = [
 # about equivalence with nothing to catch me if I'm wrong. They stay listed, with
 # reasons, until there are tests to verify them against.
 ignore = [
-    # (str, enum.Enum) -> enum.StrEnum changes str(member) from "Class.MEMBER" to
-    # "member". These enums are persisted in DB columns and cross the API boundary,
-    # so this needs a migration plus tests, not a lint autofix. (5 sites)
+    # (str, enum.Enum) -> enum.StrEnum. Deferral now rests on evidence rather than
+    # caution, and the evidence is worse than the original guess:
+    #   * This project has ALREADY been bitten by the name-vs-value ambiguity in
+    #     exactly these enums. See alembic ccc17da65492 "fix notification_kind enum
+    #     case": lowercase labels were created first, then uppercase ones added
+    #     because "SQLAlchemy PgEnum persists the Python enum .name (uppercase)".
+    #   * Both casings therefore still exist in the Postgres type, and the lowercase
+    #     ones are unused. So a change that silently flipped persistence from .name
+    #     to .value would NOT error -- it would write valid-but-different labels and
+    #     split the data in two.
+    #   * Mitigating: nothing in the codebase interpolates or str()s these enums, so
+    #     the visible str() change appears harmless, and .name/.value are unaffected
+    #     by the base class either way.
+    # tests/test_enum_persistence_contract.py now pins the contract, so the migration
+    # is checkable rather than hopeful. Still deferred: it wants a DB-backed
+    # round-trip test, which needs the postgres job that doesn't exist yet. (5 sites)
     "UP042",
     # two nested-if merges. Equivalent under short-circuit — but "equivalent" is
     # what everyone says before the bug, and there is no test to disagree. (2 sites)
